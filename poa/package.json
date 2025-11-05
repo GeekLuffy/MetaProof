@@ -1,0 +1,75 @@
+{
+  "name": "proof-of-art-network",
+  "version": "1.0.0",
+  "description": "Standalone blockchain network and POA token for Proof-of-Art projects with cloud deployment support",
+  "main": "index.js",
+  "keywords": [
+    "blockchain",
+    "ethereum",
+    "hardhat",
+    "poa",
+    "token",
+    "erc20",
+    "network",
+    "cloud",
+    "deployment"
+  ],
+  "author": "Proof-of-Art Team",
+  "license": "MIT",
+  "scripts": {
+    "node": "hardhat node",
+    "node:start": "hardhat node",
+    "compile": "hardhat compile",
+    "deploy:local": "hardhat run scripts/deploy-token.js --network localhost",
+    "deploy:cloud": "hardhat run scripts/deploy-token.js --network cloud",
+    "deploy:cloud:setup": "node scripts/deploy-cloud.js",
+    "test": "hardhat test",
+    "clean": "hardhat clean",
+    "docker:build": "docker build -t poa-network .",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "docker:prod:up": "docker-compose -f cloud/docker-compose.prod.yml up -d",
+    "docker:prod:down": "docker-compose -f cloud/docker-compose.prod.yml down",
+    "export:config": "node scripts/export-config.js"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0",
+    "ethers": "^6.9.0"
+  },
+  "exports": {
+    ".": {
+      "require": "./index.js",
+      "import": "./index.js"
+    },
+    "./network": "./networks/proof-of-art-network.js",
+    "./localhost": "./networks/localhost.js",
+    "./cloud": "./networks/cloud.js"
+  },
+  "bin": {
+    "proof-of-art-network": "./bin/cli.js"
+  },
+  "files": [
+    "contracts",
+    "scripts",
+    "networks",
+    "deployments",
+    "index.js",
+    "hardhat.config.js",
+    "bin"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/proof-of-art/proof-of-art-network"
+  },
+  "bugs": {
+    "url": "https://github.com/proof-of-art/proof-of-art-network/issues"
+  },
+  "homepage": "https://github.com/proof-of-art/proof-of-art-network#readme"
+}
+

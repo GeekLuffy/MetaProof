@@ -4,9 +4,19 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import rateLimit from 'express-rate-limit';
+import path from 'path';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables - check both backend folder and root
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config({ path: path.join(__dirname, '../../../.env') }); // Also check root
+dotenv.config(); // Fallback to default location
+
+// Debug: Log Bytez API key status (without exposing the key)
+if (process.env.BYTEZ_API_KEY) {
+  console.log(`✅ BYTEZ_API_KEY found: ${process.env.BYTEZ_API_KEY.substring(0, 8)}...`);
+} else {
+  console.warn('⚠️ BYTEZ_API_KEY not found in environment variables');
+}
 
 const app: Express = express();
 const PORT = process.env.PORT || 5000;
@@ -41,6 +51,7 @@ app.get('/health', (req: Request, res: Response) => {
 // Import routes
 import authRoutes from './routes/auth';
 import uploadRoutes from './routes/upload';
+import generateRoutes from './routes/generate';
 
 // API Routes
 app.get('/api', (req: Request, res: Response) => {
@@ -64,10 +75,8 @@ app.use('/api/auth', authRoutes);
 // Upload routes (IPFS)
 app.use('/api/upload', uploadRoutes);
 
-// Placeholder routes (will be implemented in subsequent tasks)
-app.post('/api/generate', (req: Request, res: Response) => {
-  res.status(501).json({ message: 'AI generation endpoint - Coming soon' });
-});
+// Generation routes (AI)
+app.use('/api/generate', generateRoutes);
 
 app.post('/api/verify', (req: Request, res: Response) => {
   res.status(501).json({ message: 'Verification endpoint - Coming soon' });

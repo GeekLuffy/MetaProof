@@ -39,6 +39,10 @@
     "autoprefixer": "^10.4.16",
     "eslint": "^8.56.0",
     "eslint-config-next": "14.0.4"
+  },
+  "overrides": {
+    "@metamask/sdk": {
+      "@react-native-async-storage/async-storage": "npm:async-storage@^1.0.0"
+    }
   }
 }
-

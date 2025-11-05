@@ -1,0 +1,29 @@
+# Proof-of-Art Network - Docker Compose (Development)
+version: '3.8'
+
+services:
+  poa-network:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: poa-network
+    ports:
+      - "8545:8545"  # HTTP RPC
+      - "8546:8546"  # WebSocket RPC
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./contracts:/app/contracts
+      - ./scripts:/app/scripts
+      - poa-data:/app/data
+    restart: unless-stopped
+    networks:
+      - poa-network
+
+volumes:
+  poa-data:
+
+networks:
+  poa-network:
+    driver: bridge
+

@@ -2,22 +2,23 @@
 
 import { AuthButton } from '@/components/AuthButton';
 import { useAuth } from '@/hooks/useAuth';
+import Link from 'next/link';
 
 export default function Home() {
-  const { isAuthenticated, isConnected, address } = useAuth();
+  const { isAuthenticated, isConnected } = useAuth();
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="min-h-screen bg-slate-950">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 glass">
+      <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold gradient-text">
-                🎨 Proof-of-Art
-              </h1>
+              <Link href="/" className="text-xl font-semibold text-white">
+                Proof-of-Art
+              </Link>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center">
               <AuthButton />
             </div>
           </div>
@@ -25,123 +26,137 @@ export default function Home() {
       </nav>
 
       {/* Hero Section */}
-      <div className="pt-24 pb-12 px-4 sm:px-6 lg:px-8">
+      <section className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight">
+            Blockchain-Verified AI Art
+            <br />
+            <span className="text-blue-400">Provenance System</span>
+          </h1>
+          <p className="text-lg md:text-xl text-slate-400 mb-12 max-w-2xl mx-auto leading-relaxed">
+            Establish immutable proof of authorship for AI-generated content.
+            Secure, verifiable, and transparent creative provenance on the blockchain.
+          </p>
+
+          {!isAuthenticated && (
+            <div className="inline-flex items-center gap-3 px-6 py-3 bg-blue-600/10 border border-blue-500/20 rounded-lg text-blue-300 text-sm">
+              {!isConnected ? (
+                <>
+                  <span>Connect your wallet to get started</span>
+                </>
+              ) : (
+                <>
+                  <span>Sign the authentication message to continue</span>
+                </>
+              )}
+            </div>
+          )}
+
+          {isAuthenticated && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-12">
+              <FeatureCard
+                title="Create"
+                description="Generate AI art with blockchain-verified prompts"
+                link="/create"
+                icon="Create"
+              />
+              <FeatureCard
+                title="Verify"
+                description="Check artwork authenticity on the blockchain"
+                link="/verify"
+              />
+              <FeatureCard
+                title="Dashboard"
+                description="Manage your verified art collection"
+                link="/dashboard"
+              />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="py-16 px-4 sm:px-6 lg:px-8 border-t border-slate-800">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center">
-            <h2 className="text-5xl md:text-6xl font-extrabold text-white mb-6 animate-fade-in">
-              Own Your Creativity
-              <br />
-              <span className="gradient-text">Prove Your Originality</span>
-            </h2>
-            <p className="text-xl text-gray-300 mb-8 max-w-3xl mx-auto">
-              The world's first blockchain-verified creative provenance system for AI-generated art.
-              Establish immutable proof of authorship with cryptographic security.
-            </p>
-
-            {!isAuthenticated ? (
-              <div className="bg-yellow-500/10 border border-yellow-500/50 rounded-lg p-6 max-w-md mx-auto">
-                <p className="text-yellow-200 text-sm">
-                  {!isConnected 
-                    ? '👆 Connect your wallet to get started'
-                    : '✍️ Sign the message to authenticate'}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-                {/* Feature Cards */}
-                <FeatureCard
-                  icon="🎨"
-                  title="Create"
-                  description="Generate AI art with verified prompts"
-                  link="/create"
-                />
-                <FeatureCard
-                  icon="🔍"
-                  title="Verify"
-                  description="Check artwork authenticity on blockchain"
-                  link="/verify"
-                />
-                <FeatureCard
-                  icon="📊"
-                  title="Dashboard"
-                  description="View your verified art collection"
-                  link="/dashboard"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Stats Section */}
-          <div className="mt-20 grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <StatCard title="Total Artworks" value="0" />
             <StatCard title="Verified Creators" value="0" />
             <StatCard title="Verifications" value="0" />
             <StatCard title="Blockchain Proofs" value="0" />
           </div>
+        </div>
+      </section>
 
-          {/* How It Works */}
-          <div className="mt-20">
-            <h3 className="text-3xl font-bold text-white text-center mb-12">
-              How It Works
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <StepCard
-                number="1"
-                title="Connect Wallet"
-                description="Authenticate with your Web3 wallet"
-              />
-              <StepCard
-                number="2"
-                title="Create Art"
-                description="Generate AI art with your prompt"
-              />
-              <StepCard
-                number="3"
-                title="Get Certificate"
-                description="Receive blockchain-verified NFT certificate"
-              />
-              <StepCard
-                number="4"
-                title="Verify Anytime"
-                description="Anyone can verify your artwork's authenticity"
-              />
-            </div>
+      {/* How It Works */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8 border-t border-slate-800">
+        <div className="max-w-6xl mx-auto">
+          <h2 className="text-3xl font-bold text-white text-center mb-12">
+            How It Works
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <StepCard
+              number={1}
+              title="Connect Wallet"
+              description="Authenticate using your Web3 wallet"
+            />
+            <StepCard
+              number={2}
+              title="Create Art"
+              description="Generate AI art with your prompt"
+            />
+            <StepCard
+              number={3}
+              title="Get Certificate"
+              description="Receive blockchain-verified NFT certificate"
+            />
+            <StepCard
+              number={4}
+              title="Verify"
+              description="Anyone can verify authenticity on-chain"
+            />
           </div>
         </div>
-      </div>
-    </main>
+      </section>
+
+      {/* Footer */}
+      <footer className="py-8 px-4 sm:px-6 lg:px-8 border-t border-slate-800">
+        <div className="max-w-7xl mx-auto text-center text-sm text-slate-500">
+          <p>© 2025 Proof-of-Art. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
   );
 }
 
-function FeatureCard({ icon, title, description, link }: { icon: string; title: string; description: string; link: string }) {
+function FeatureCard({ title, description, link, icon }: { title: string; description: string; link: string; icon?: string }) {
   return (
-    <a href={link} className="block">
-      <div className="glass rounded-xl p-6 hover:scale-105 transition-transform duration-300 cursor-pointer">
-        <div className="text-4xl mb-4">{icon}</div>
-        <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
-        <p className="text-gray-300 text-sm">{description}</p>
-      </div>
-    </a>
+    <Link
+      href={link}
+      className="block p-6 bg-slate-900 border border-slate-800 rounded-lg hover:border-blue-500/50 hover:bg-slate-800/50 transition-all duration-200"
+    >
+      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
+      <p className="text-sm text-slate-400">{description}</p>
+    </Link>
   );
 }
 
 function StatCard({ title, value }: { title: string; value: string }) {
   return (
-    <div className="glass rounded-xl p-6 text-center">
+    <div className="text-center p-6 bg-slate-900 border border-slate-800 rounded-lg">
       <div className="text-3xl font-bold text-white mb-2">{value}</div>
-      <div className="text-gray-300 text-sm">{title}</div>
+      <div className="text-sm text-slate-400">{title}</div>
     </div>
   );
 }
 
-function StepCard({ number, title, description }: { number: string; title: string; description: string }) {
+function StepCard({ number, title, description }: { number: number; title: string; description: string }) {
   return (
-    <div className="glass rounded-xl p-6 text-center">
-      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-xl mx-auto mb-4">
+    <div className="p-6 bg-slate-900 border border-slate-800 rounded-lg">
+      <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-lg mb-4">
         {number}
       </div>
-      <h4 className="text-lg font-bold text-white mb-2">{title}</h4>
-      <p className="text-gray-300 text-sm">{description}</p>
+      <h3 className="text-lg font-semibold text-white mb-2">{title}</h3>
+      <p className="text-sm text-slate-400">{description}</p>
     </div>
   );
 }

@@ -96,16 +96,19 @@ export function authenticateToken(
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
+    console.log('❌ No token provided in request');
     res.status(401).json({ error: 'Authentication token required' });
     return;
   }
 
   const decoded = verifyToken(token);
   if (!decoded) {
-    res.status(403).json({ error: 'Invalid or expired token' });
+    console.log('❌ Invalid or expired token');
+    res.status(403).json({ error: 'Invalid or expired token. Please reconnect your wallet and sign in again.' });
     return;
   }
 
+  console.log(`✅ Authenticated user: ${decoded.address}`);
   req.user = { address: decoded.address };
   next();
 }

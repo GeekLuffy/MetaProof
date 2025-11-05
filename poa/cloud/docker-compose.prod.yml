@@ -1,0 +1,50 @@
+# Proof-of-Art Network - Docker Compose (Production)
+version: '3.8'
+
+services:
+  poa-network:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: poa-network-prod
+    ports:
+      - "8545:8545"  # HTTP RPC
+      - "8546:8546"  # WebSocket RPC
+    environment:
+      - NODE_ENV=production
+      - CHAIN_ID=${CHAIN_ID:-31337}
+    volumes:
+      - poa-data-prod:/app/data
+      - ./logs:/app/logs
+    restart: always
+    networks:
+      - poa-network-prod
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    container_name: poa-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - poa-network
+    restart: always
+    networks:
+      - poa-network-prod
+
+volumes:
+  poa-data-prod:
+
+networks:
+  poa-network-prod:
+    driver: bridge
+

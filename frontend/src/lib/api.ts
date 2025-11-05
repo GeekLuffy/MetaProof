@@ -1,6 +1,16 @@
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+// Get backend URL from environment variable, with fallback
+const getBackendUrl = () => {
+  if (typeof window !== 'undefined') {
+    // Client-side: check env var
+    return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+  }
+  // Server-side: use default
+  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+};
+
+const BASE_URL = getBackendUrl();
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
@@ -31,12 +41,12 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Unauthorized - clear auth and redirect to login
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      // Unauthorized or Forbidden - clear auth
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_address');
-        // Could trigger a global auth state update here
+        console.warn('Authentication token invalid or expired. Please reconnect your wallet.');
       }
     }
     return Promise.reject(error);
@@ -61,7 +71,11 @@ export const api = {
       model: string;
       parameters?: any;
       biometricData?: string;
-    }) => apiClient.post('/api/generate', data),
+    }) => apiClient.post('/api/generate', data, {
+      timeout: 300000, // 5 minutes for image generation
+    }),
+
+    getModels: () => apiClient.get('/api/generate/models'),
 
     verify: (data: { contentHash?: string; ipfsCID?: string }) =>
       apiClient.post('/api/verify', data),

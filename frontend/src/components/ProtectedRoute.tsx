@@ -27,10 +27,10 @@ export function ProtectedRoute({ children, requireAuth = true }: ProtectedRouteP
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-          <p className="text-gray-300">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-slate-700 border-t-blue-600 mx-auto mb-4"></div>
+          <p className="text-slate-400">Loading...</p>
         </div>
       </div>
     );
@@ -38,11 +38,11 @@ export function ProtectedRoute({ children, requireAuth = true }: ProtectedRouteP
 
   if (requireAuth && !isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-slate-950">
         <div className="text-center max-w-md mx-auto p-8">
           <div className="mb-6">
             <svg
-              className="w-20 h-20 mx-auto text-yellow-500"
+              className="w-16 h-16 mx-auto text-blue-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -55,15 +55,15 @@ export function ProtectedRoute({ children, requireAuth = true }: ProtectedRouteP
               />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-white mb-4">
+          <h2 className="text-2xl font-semibold text-white mb-4">
             Authentication Required
           </h2>
-          <p className="text-gray-300 mb-6">
+          <p className="text-slate-400 mb-6">
             Please connect your wallet and sign the authentication message to access this page.
           </p>
           <button
             onClick={() => router.push('/')}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-lg transition-colors duration-200"
           >
             Go to Home
           </button>

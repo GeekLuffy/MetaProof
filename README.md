@@ -153,12 +153,14 @@ This will start:
 # Deploy to local network
 npm run deploy:local
 
-# Deploy to testnet (Polygon Mumbai)
+# Deploy to testnet (Polygon Amoy)
 npm run deploy:testnet
 
 # Deploy to mainnet
 npm run deploy:mainnet
 ```
+
+**⚠️ Note:** Polygon Mumbai was deprecated in April 2024. We now use **Polygon Amoy** testnet. See [NETWORK_SETUP.md](./NETWORK_SETUP.md) for details.
 
 ## 🔐 Security Features
 
