@@ -1,0 +1,93 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.js
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Testing
+coverage/
+.nyc_output/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.vercel
+
+# Production
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+.idea/
+.vscode/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Hardhat
+contracts/cache/
+contracts/artifacts/
+contracts/typechain-types/
+contracts/coverage/
+contracts/.coverage_artifacts/
+contracts/.coverage_cache/
+contracts/.coverage_contracts/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# IDE
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+.vscode/
+.idea/
+
+# Backend uploads
+backend/uploads/
+backend/temp/
+
+# Certificates & Keys (DO NOT COMMIT)
+*.key
+*.pem
+*.p12
+secrets/
+
+# IPFS
+.ipfs/
+
+# Blockchain
+contracts/deployments/
+contracts/deployments/*
+!contracts/deployments/.gitkeep
+

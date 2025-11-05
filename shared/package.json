@@ -1,0 +1,17 @@
+{
+  "name": "proof-of-art-shared",
+  "version": "1.0.0",
+  "description": "Shared types and utilities for Proof-of-Art",
+  "main": "types/index.ts",
+  "types": "types/index.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": ["types", "shared"],
+  "author": "Proof-of-Art Team",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
+
