@@ -185,6 +185,177 @@ export class AIService {
   }
 
   /**
+   * Generate audio using Bytez.com API
+   */
+  async generateBytezAudio(
+    prompt: string,
+    modelId: string = 'facebook/musicgen-stereo-melody-large',
+    options?: any
+  ): Promise<{ audioUrl: string; metadata?: any }> {
+    if (!this.bytezSdk) {
+      throw new Error('Bytez API key not configured');
+    }
+
+    try {
+      console.log(`🎵 Generating audio with Bytez model: ${modelId}`);
+      console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
+      
+      const model = this.bytezSdk.model(modelId);
+      
+      // Add timeout for Bytez API call (5 minutes)
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Bytez API timeout after 300 seconds')), 300000)
+      );
+      
+      // Run the model with timeout - model.run() returns { error, output }
+      const generationPromise = model.run(prompt);
+      const result = await Promise.race([generationPromise, timeoutPromise]) as any;
+
+      console.log('🔍 Bytez audio generation result:', { 
+        hasError: !!result.error, 
+        hasOutput: !!result.output,
+        outputType: typeof result.output 
+      });
+
+      if (result.error) {
+        console.error('❌ Bytez API error:', result.error);
+        throw new Error(`Bytez audio generation error: ${result.error}`);
+      }
+
+      if (!result.output) {
+        console.error('❌ No output in result:', result);
+        throw new Error('No output returned from Bytez');
+      }
+
+      console.log(`✅ Bytez audio generation successful. Audio URL: ${result.output}`);
+      
+      return {
+        audioUrl: result.output,
+        metadata: {
+          modelId,
+          provider: 'bytez',
+        },
+      };
+    } catch (error: any) {
+      console.error('❌ Bytez audio generation error:', error);
+      if (error.message?.includes('timeout')) {
+        throw new Error('Audio generation timed out. Please try again with a shorter prompt or different model.');
+      }
+      throw new Error(`Bytez audio generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate video using Bytez.com API
+   */
+  async generateBytezVideo(
+    prompt: string,
+    modelId: string = 'ali-vilab/text-to-video-ms-1.7b',
+    options?: any
+  ): Promise<{ videoUrl: string; metadata?: any }> {
+    if (!this.bytezSdk) {
+      throw new Error('Bytez API key not configured');
+    }
+
+    try {
+      console.log(`🎬 Generating video with Bytez model: ${modelId}`);
+      console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
+      
+      const model = this.bytezSdk.model(modelId);
+      
+      // Add timeout for Bytez API call (5 minutes)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Bytez API timeout after 300 seconds')), 300000)
+      );
+      
+      const generationPromise = model.run(prompt);
+      const { error, output } = await Promise.race([generationPromise, timeoutPromise]) as any;
+
+      if (error) {
+        console.error('❌ Bytez API error:', error);
+        throw new Error(`Bytez video generation error: ${error}`);
+      }
+
+      if (!output) {
+        throw new Error('No output returned from Bytez');
+      }
+
+      console.log(`✅ Bytez video generation successful. Video URL received.`);
+      
+      return {
+        videoUrl: output,
+        metadata: {
+          modelId,
+          provider: 'bytez',
+        },
+      };
+    } catch (error: any) {
+      console.error('❌ Bytez video generation error:', error);
+      if (error.message?.includes('timeout')) {
+        throw new Error('Video generation timed out. Please try again with a shorter prompt or different model.');
+      }
+      throw new Error(`Bytez video generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Generate text using Bytez.com API
+   */
+  async generateBytezText(
+    prompt: string | Array<{ role: string; content: string }>,
+    modelId: string = 'Qwen/Qwen3-4B',
+    options?: any
+  ): Promise<{ text: string; metadata?: any }> {
+    if (!this.bytezSdk) {
+      throw new Error('Bytez API key not configured');
+    }
+
+    try {
+      console.log(`📝 Generating text with Bytez model: ${modelId}`);
+      
+      const model = this.bytezSdk.model(modelId);
+      
+      // Add timeout for Bytez API call (5 minutes)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Bytez API timeout after 300 seconds')), 300000)
+      );
+      
+      // If prompt is a string, convert it to message format
+      const input = typeof prompt === 'string' 
+        ? [{ role: 'user', content: prompt }]
+        : prompt;
+      
+      const generationPromise = model.run(input);
+      const { error, output } = await Promise.race([generationPromise, timeoutPromise]) as any;
+
+      if (error) {
+        console.error('❌ Bytez API error:', error);
+        throw new Error(`Bytez text generation error: ${error}`);
+      }
+
+      if (!output) {
+        throw new Error('No output returned from Bytez');
+      }
+
+      console.log(`✅ Bytez text generation successful.`);
+      
+      return {
+        text: output,
+        metadata: {
+          modelId,
+          provider: 'bytez',
+        },
+      };
+    } catch (error: any) {
+      console.error('❌ Bytez text generation error:', error);
+      if (error.message?.includes('timeout')) {
+        throw new Error('Text generation timed out. Please try again with a shorter prompt or different model.');
+      }
+      throw new Error(`Bytez text generation failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Generate image using specified model
    */
   async generateImage(
@@ -224,6 +395,69 @@ export class AIService {
       default:
         throw new Error(`Unsupported model: ${model}`);
     }
+  }
+
+  /**
+   * Generate content based on content type
+   */
+  async generateContent(
+    prompt: string | Array<{ role: string; content: string }>,
+    contentType: 'text' | 'image' | 'music' | 'code' | 'video',
+    model: string,
+    options?: any
+  ): Promise<{ contentUrl?: string; imageUrl?: string; videoUrl?: string; audioUrl?: string; text?: string; content?: string; metadata?: any }> {
+    // Check if it's a Bytez model
+    if (model.startsWith('bytez:')) {
+      const bytezModelId = model.replace('bytez:', '');
+      
+      switch (contentType) {
+        case 'music':
+          const audioResult = await this.generateBytezAudio(typeof prompt === 'string' ? prompt : prompt[prompt.length - 1].content, bytezModelId, options);
+          return {
+            audioUrl: audioResult.audioUrl,
+            contentUrl: audioResult.audioUrl,
+            metadata: audioResult.metadata,
+          };
+        
+        case 'video':
+          const videoResult = await this.generateBytezVideo(typeof prompt === 'string' ? prompt : prompt[prompt.length - 1].content, bytezModelId, options);
+          return {
+            videoUrl: videoResult.videoUrl,
+            contentUrl: videoResult.videoUrl,
+            metadata: videoResult.metadata,
+          };
+        
+        case 'text':
+        case 'code':
+          const textResult = await this.generateBytezText(prompt, bytezModelId, options);
+          return {
+            text: textResult.text,
+            content: textResult.text,
+            metadata: textResult.metadata,
+          };
+        
+        case 'image':
+        default:
+          const imageResult = await this.generateBytez(typeof prompt === 'string' ? prompt : prompt[prompt.length - 1].content, bytezModelId, options);
+          return {
+            imageUrl: imageResult.imageUrl,
+            contentUrl: imageResult.imageUrl,
+            metadata: imageResult.metadata,
+          };
+      }
+    }
+
+    // For non-Bytez models, default to image generation
+    if (contentType === 'image' || !contentType) {
+      const imageResult = await this.generateImage(typeof prompt === 'string' ? prompt : prompt[prompt.length - 1].content, model, options);
+      return {
+        imageUrl: imageResult.imageUrl,
+        contentUrl: imageResult.imageUrl,
+        metadata: imageResult.metadata,
+      };
+    }
+
+    throw new Error(`Content type ${contentType} is only supported with Bytez models`);
   }
 
   /**

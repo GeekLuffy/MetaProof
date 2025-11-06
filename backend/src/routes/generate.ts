@@ -25,6 +25,7 @@ router.post(
   [
     body('prompt').trim().isLength({ min: 1, max: 1000 }).withMessage('Prompt must be 1-1000 characters'),
     body('model').notEmpty().withMessage('Model is required'),
+    body('contentType').optional().isIn(['text', 'image', 'music', 'code', 'video']),
     body('parameters').optional().isObject(),
   ],
   async (req: AuthRequest, res: Response) => {
@@ -35,7 +36,7 @@ router.post(
         return res.status(400).json({ errors: errors.array() });
       }
 
-      const { prompt, model, parameters, biometricData } = req.body;
+      const { prompt, model, contentType = 'image', parameters, biometricData } = req.body;
       const creatorAddress = req.user?.address;
 
       if (!creatorAddress) {
@@ -52,55 +53,87 @@ router.post(
 
       const startTime = Date.now();
       
-      // Step 1: Generate image using AI service
-      console.log(`🎨 [Step 1/3] Starting image generation with model: ${model}`);
-      console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
+      // Step 1: Generate content using AI service
+      const contentTypeLabel = contentType === 'image' ? 'image' : contentType === 'video' ? 'video' : contentType === 'music' ? 'audio' : contentType === 'text' ? 'text' : 'content';
+      console.log(`🎨 [Step 1/3] Starting ${contentTypeLabel} generation with model: ${model}`);
+      console.log(`📝 Prompt: ${typeof prompt === 'string' ? prompt.substring(0, 100) : 'Message chain'}...`);
       const step1Start = Date.now();
-      const generationResult = await aiService.generateImage(prompt, model, parameters);
-      console.log(`✅ [Step 1/3] Image generation completed in ${Date.now() - step1Start}ms`);
+      const generationResult = await aiService.generateContent(prompt, contentType, model, parameters);
+      console.log(`✅ [Step 1/3] ${contentTypeLabel} generation completed in ${Date.now() - step1Start}ms`);
 
-      // Step 2: Download image from URL to compute hash
-      console.log(`📥 [Step 2/3] Downloading image...`);
+      // Step 2: Download content from URL to compute hash (or use text directly)
+      console.log(`📥 [Step 2/3] Processing content...`);
       const step2Start = Date.now();
-      const imageResponse = await fetch(generationResult.imageUrl);
-      if (!imageResponse.ok) {
-        throw new Error('Failed to download generated image');
+      let contentBuffer: Buffer;
+      let contentUrl: string | undefined;
+
+      if (contentType === 'text' || contentType === 'code') {
+        // For text/code, use the text directly
+        const textContent = generationResult.text || generationResult.content || '';
+        contentBuffer = Buffer.from(textContent, 'utf-8');
+        contentUrl = undefined;
+      } else {
+        // For image/video/audio, download from URL
+        contentUrl = generationResult.contentUrl || generationResult.imageUrl || generationResult.videoUrl || generationResult.audioUrl;
+        if (!contentUrl) {
+          throw new Error('No content URL returned from generation');
+        }
+        const contentResponse = await fetch(contentUrl);
+        if (!contentResponse.ok) {
+          throw new Error(`Failed to download generated ${contentType}`);
+        }
+        contentBuffer = Buffer.from(await contentResponse.arrayBuffer());
       }
-      const imageBuffer = Buffer.from(await imageResponse.arrayBuffer());
-      console.log(`✅ [Step 2/3] Image downloaded in ${Date.now() - step2Start}ms. Size: ${(imageBuffer.length / 1024).toFixed(2)} KB`);
+      console.log(`✅ [Step 2/3] Content processed in ${Date.now() - step2Start}ms. Size: ${(contentBuffer.length / 1024).toFixed(2)} KB`);
 
       // Step 3: Generate content hash (FAST)
       console.log(`🔐 [Step 3/3] Generating content hash...`);
       const step3Start = Date.now();
-      const contentHash = generateContentHash(imageBuffer);
-      const promptHash = generatePromptHash(prompt);
+      const contentHash = generateContentHash(contentBuffer);
+      const promptHash = generatePromptHash(typeof prompt === 'string' ? prompt : JSON.stringify(prompt));
       console.log(`✅ [Step 3/3] Hashes generated in ${Date.now() - step3Start}ms`);
 
       const totalTime = Date.now() - startTime;
       console.log(`✅ 🎉 FAST RESPONSE! Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
       console.log(`📤 Note: IPFS upload and blockchain registration will be done by user action`);
       
-      // Return immediately with original image URL
+      // Return immediately with original content URL or text
       // User can then upload to IPFS and register on blockchain separately
-      res.json({
+      const response: any = {
         success: true,
-        imageUrl: generationResult.imageUrl, // Original AI-generated URL
-        imageBuffer: imageBuffer.toString('base64'), // Send buffer for frontend to upload
+        contentUrl: contentUrl,
+        contentBuffer: contentBuffer.toString('base64'), // Send buffer for frontend to upload
         contentHash,
         promptHash,
         model,
+        contentType,
         metadata: generationResult.metadata,
         ipfsReady: false, // Flag to indicate IPFS upload is pending
         timing: {
           total: totalTime,
           aiGeneration: Date.now() - step1Start,
         },
-      });
+      };
+
+      // Add type-specific fields for backward compatibility
+      if (contentType === 'image') {
+        response.imageUrl = contentUrl;
+        response.imageBuffer = contentBuffer.toString('base64');
+      } else if (contentType === 'video') {
+        response.videoUrl = contentUrl;
+      } else if (contentType === 'music') {
+        response.audioUrl = contentUrl;
+      } else if (contentType === 'text' || contentType === 'code') {
+        response.text = generationResult.text || generationResult.content;
+        response.content = generationResult.text || generationResult.content;
+      }
+
+      res.json(response);
     } catch (error: any) {
       console.error('Generation error:', error);
       res.status(500).json({
         success: false,
-        error: 'Failed to generate artwork',
+        error: 'Failed to generate content',
         message: error.message,
       });
     }
@@ -116,14 +149,14 @@ router.post(
   authenticateToken,
   async (req: AuthRequest, res: Response) => {
     try {
-      const { imageBuffer, contentHash, promptHash, model } = req.body;
+      const { contentBuffer, imageBuffer, contentHash, promptHash, model, contentType = 'image' } = req.body;
       const creatorAddress = req.user?.address;
 
       if (!creatorAddress) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
-      if (!imageBuffer || !contentHash || !promptHash) {
+      if ((!contentBuffer && !imageBuffer) || !contentHash || !promptHash) {
         return res.status(400).json({ error: 'Missing required data' });
       }
 
@@ -131,7 +164,13 @@ router.post(
       const startTime = Date.now();
 
       // Convert base64 back to buffer
-      const buffer = Buffer.from(imageBuffer, 'base64');
+      const buffer = Buffer.from(contentBuffer || imageBuffer, 'base64');
+      
+      // Determine file extension based on content type
+      const fileExtension = contentType === 'image' ? 'png' : 
+                           contentType === 'video' ? 'mp4' : 
+                           contentType === 'music' ? 'mp3' : 
+                           contentType === 'text' || contentType === 'code' ? 'txt' : 'bin';
 
       // Step 1: Upload to IPFS
       console.log(`📤 [Step 1/4] Uploading to IPFS...`);
@@ -139,12 +178,13 @@ router.post(
       try {
         ipfsResult = await ipfsService.uploadFile(
           buffer,
-          `artwork-${Date.now()}.png`,
+          `content-${Date.now()}.${fileExtension}`,
           {
-            name: 'AI Generated Artwork',
+            name: `AI Generated ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`,
             keyValues: {
               creator: creatorAddress,
               model: model || 'unknown',
+              contentType: contentType,
               promptHash,
               contentHash,
             },
@@ -233,71 +273,117 @@ router.post(
  */
 router.get('/models', async (req: Request, res: Response) => {
   try {
-    console.log('📋 Fetching models...');
-    const models: any[] = [
-      {
-        id: 'dall-e-3',
-        name: 'DALL-E 3',
-        provider: 'OpenAI',
-        available: aiService.isConfigured('dall-e-3'),
-        description: 'OpenAI DALL-E 3 - High quality image generation',
-        features: ['1024x1024', '1792x1024', '1024x1792', 'HD quality'],
-      },
-      {
-        id: 'stability-ai',
-        name: 'Stability AI',
-        provider: 'Stability AI',
-        available: aiService.isConfigured('stability-ai'),
-        description: 'Stable Diffusion - Fast and flexible generation',
-        features: ['Custom sizes', 'Style presets', 'High quality'],
-      },
-    ];
+    const contentType = req.query.contentType as string || 'image';
+    console.log(`📋 Fetching models for content type: ${contentType}...`);
+    const models: any[] = [];
 
-    // Fetch Bytez models (with error handling)
-    console.log('🔍 Fetching Bytez models...');
-    try {
-      const bytezModels = await aiService.getBytezModels();
-      console.log(`✅ Found ${bytezModels.length} Bytez models`);
-      
-      bytezModels.forEach((model: { id: string; name: string; description?: string }) => {
-        const modelId = `bytez:${model.id}`;
-        const isAvailable = aiService.isConfigured(modelId);
-        console.log(`  - ${model.name} (${modelId}): ${isAvailable ? '✅ Available' : '❌ Not configured'}`);
+    // Add image models for image content type
+    if (contentType === 'image') {
+      models.push(
+        {
+          id: 'dall-e-3',
+          name: 'DALL-E 3',
+          provider: 'OpenAI',
+          available: aiService.isConfigured('dall-e-3'),
+          description: 'OpenAI DALL-E 3 - High quality image generation',
+          features: ['1024x1024', '1792x1024', '1024x1792', 'HD quality'],
+          contentType: 'image',
+        },
+        {
+          id: 'stability-ai',
+          name: 'Stability AI',
+          provider: 'Stability AI',
+          available: aiService.isConfigured('stability-ai'),
+          description: 'Stable Diffusion - Fast and flexible generation',
+          features: ['Custom sizes', 'Style presets', 'High quality'],
+          contentType: 'image',
+        }
+      );
+
+      // Fetch Bytez image models
+      console.log('🔍 Fetching Bytez image models...');
+      try {
+        const bytezModels = await aiService.getBytezModels();
+        console.log(`✅ Found ${bytezModels.length} Bytez image models`);
         
-        models.push({
-          id: modelId,
-          name: model.name,
-          provider: 'Bytez',
-          available: isAvailable,
-          description: model.description || `Bytez ${model.name} - Text to image generation`,
-          features: ['Text-to-image', 'High quality'],
-          bytezModelId: model.id,
+        bytezModels.forEach((model: { id: string; name: string; description?: string }) => {
+          const modelId = `bytez:${model.id}`;
+          const isAvailable = aiService.isConfigured(modelId);
+          console.log(`  - ${model.name} (${modelId}): ${isAvailable ? '✅ Available' : '❌ Not configured'}`);
+          
+          models.push({
+            id: modelId,
+            name: model.name,
+            provider: 'Bytez',
+            available: isAvailable,
+            description: model.description || `Bytez ${model.name} - Text to image generation`,
+            features: ['Text-to-image', 'High quality'],
+            contentType: 'image',
+            bytezModelId: model.id,
+          });
         });
+      } catch (bytezError: any) {
+        console.error('⚠️ Error fetching Bytez models (non-critical, using defaults):', bytezError.message);
+        // Add default Bytez models even if fetch fails
+        const defaultBytezModels = [
+          { id: 'Linaqruf/animagine-xl-3.0', name: 'Animagine XL 3.0', description: 'Create images of animals and humans in anime style' },
+          { id: 'dreamlike-art/dreamlike-photoreal-2.0', name: 'Dreamlike Photoreal 2.0', description: 'High-quality photorealistic image generation' },
+          { id: 'stabilityai/stable-diffusion-xl-base-1.0', name: 'Stable Diffusion XL', description: 'Advanced Stable Diffusion XL model' },
+          { id: 'dataautogpt3/ProteusV0.2', name: 'Proteus V0.2', description: 'Proteus V0.2 - Advanced image generation model' },
+          { id: 'danhtran2mind/Ghibli-Stable-Diffusion-2.1-Base-finetuning', name: 'Ghibli Stable Diffusion 2.1', description: 'Ghibli Style Advanced image generation model' },
+          { id: 'playgroundai/playground-v2.5-1024px-aesthetic', name: 'Playground v2.5', description: 'Aesthetic-focused image generation' },
+        ];
+        
+        defaultBytezModels.forEach((model) => {
+          const modelId = `bytez:${model.id}`;
+          const isAvailable = aiService.isConfigured(modelId);
+          models.push({
+            id: modelId,
+            name: model.name,
+            provider: 'Bytez',
+            available: isAvailable,
+            description: model.description || `Bytez ${model.name} - Text to image generation`,
+            features: ['Text-to-image', 'High quality'],
+            contentType: 'image',
+            bytezModelId: model.id,
+          });
+        });
+      }
+    } else if (contentType === 'video') {
+      // Add Bytez video models
+      models.push({
+        id: 'bytez:ali-vilab/text-to-video-ms-1.7b',
+        name: 'Stable Video Diffusion (Bytez)',
+        provider: 'Bytez',
+        available: aiService.isConfigured('bytez:ali-vilab/text-to-video-ms-1.7b'),
+        description: 'Generate short video clips from text prompts',
+        features: ['Text-to-video', 'Short clips'],
+        contentType: 'video',
+        bytezModelId: 'ali-vilab/text-to-video-ms-1.7b',
       });
-    } catch (bytezError: any) {
-      console.error('⚠️ Error fetching Bytez models (non-critical, using defaults):', bytezError.message);
-      // Add default Bytez models even if fetch fails
-      const defaultBytezModels = [
-        { id: 'Linaqruf/animagine-xl-3.0', name: 'Animagine XL 3.0', description: 'Create images of animals and humans in anime style' },
-        { id: 'dreamlike-art/dreamlike-photoreal-2.0', name: 'Dreamlike Photoreal 2.0', description: 'High-quality photorealistic image generation' },
-        { id: 'stabilityai/stable-diffusion-xl-base-1.0', name: 'Stable Diffusion XL', description: 'Advanced Stable Diffusion XL model' },
-        { id: 'dataautogpt3/ProteusV0.2', name: 'Proteus V0.2', description: 'Proteus V0.2 - Advanced image generation model' },
-        { id: 'danhtran2mind/Ghibli-Stable-Diffusion-2.1-Base-finetuning', name: 'Ghibli Stable Diffusion 2.1', description: 'Ghibli Style Advanced image generation model' },
-        { id: 'playgroundai/playground-v2.5-1024px-aesthetic', name: 'Playground v2.5', description: 'Aesthetic-focused image generation' },
-      ];
-      
-      defaultBytezModels.forEach((model) => {
-        const modelId = `bytez:${model.id}`;
-        const isAvailable = aiService.isConfigured(modelId);
-        models.push({
-          id: modelId,
-          name: model.name,
-          provider: 'Bytez',
-          available: isAvailable,
-          description: model.description || `Bytez ${model.name} - Text to image generation`,
-          features: ['Text-to-image', 'High quality'],
-          bytezModelId: model.id,
-        });
+    } else if (contentType === 'music') {
+      // Add Bytez audio models
+      models.push({
+        id: 'bytez:facebook/musicgen-stereo-melody-large',
+        name: 'MusicGen Stereo Melody Large (Bytez)',
+        provider: 'Bytez',
+        available: aiService.isConfigured('bytez:facebook/musicgen-stereo-melody-large'),
+        description: 'Generate music from text prompts',
+        features: ['Text-to-music', 'Stereo audio', 'Melody generation'],
+        contentType: 'music',
+        bytezModelId: 'facebook/musicgen-stereo-melody-large',
+      });
+    } else if (contentType === 'text' || contentType === 'code') {
+      // Add Bytez text models
+      models.push({
+        id: 'bytez:Qwen/Qwen3-4B',
+        name: 'Qwen3-4B (Bytez)',
+        provider: 'Bytez',
+        available: aiService.isConfigured('bytez:Qwen/Qwen3-4B'),
+        description: 'Generate text from message chains for story generation, dialogue systems, and creative writing',
+        features: ['Text generation', 'Conversational', 'Creative writing'],
+        contentType: contentType,
+        bytezModelId: 'Qwen/Qwen3-4B',
       });
     }
 

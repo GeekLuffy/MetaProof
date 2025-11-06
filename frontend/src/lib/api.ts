@@ -69,22 +69,26 @@ export const api = {
     generate: (data: {
       prompt: string;
       model: string;
+      contentType?: string;
       parameters?: any;
       biometricData?: string;
     }) => apiClient.post('/api/generate', data, {
-      timeout: 300000, // 5 minutes for image generation
+      timeout: 300000, // 5 minutes for generation
     }),
 
     uploadToIPFS: (data: {
-      imageBuffer: string;
+      contentBuffer: string;
       contentHash: string;
       promptHash: string;
       model: string;
+      contentType?: string;
     }) => apiClient.post('/api/generate/upload-ipfs', data, {
       timeout: 120000, // 2 minutes for IPFS upload
     }),
 
-    getModels: () => apiClient.get('/api/generate/models'),
+    getModels: (contentType?: string) => apiClient.get('/api/generate/models', {
+      params: contentType ? { contentType } : {},
+    }),
 
     verify: (data: { contentHash?: string; ipfsCID?: string }) =>
       apiClient.post('/api/verify', data),

@@ -9,6 +9,8 @@ import { useRegisterArtwork } from '@/hooks/useRegisterArtwork';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 
+type ContentType = 'text' | 'image' | 'music' | 'code' | 'video';
+
 interface Model {
   id: string;
   name: string;
@@ -16,6 +18,7 @@ interface Model {
   available: boolean;
   description?: string;
   features?: string[];
+  contentType?: ContentType;
 }
 
 export default function CreatePage() {
@@ -28,9 +31,11 @@ export default function CreatePage() {
 
 function CreateContent() {
   const { isAuthenticated } = useAuth();
+  const [contentType, setContentType] = useState<ContentType>('video');
   const [prompt, setPrompt] = useState('');
-  const [model, setModel] = useState<string>('dall-e-3');
+  const [model, setModel] = useState<string>('');
   const [models, setModels] = useState<Model[]>([]);
+  const [filteredModels, setFilteredModels] = useState<Model[]>([]);
   const [loadingModels, setLoadingModels] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [generationProgress, setGenerationProgress] = useState('');
@@ -44,12 +49,13 @@ function CreateContent() {
     const fetchModels = async () => {
       try {
         console.log('🔄 Fetching models from API...');
-        const response = await api.artwork.getModels();
+        const response = await api.artwork.getModels(contentType);
         console.log('📦 Received models:', response.data);
         const modelsList = response.data.models || [];
         console.log(`✅ Loaded ${modelsList.length} models:`, modelsList.map((m: Model) => `${m.name} (${m.provider}) - ${m.available ? 'Available' : 'Not configured'}`));
         
         setModels(modelsList);
+        setFilteredModels(modelsList);
         
         // Set default model to first available one
         const availableModel = modelsList.find((m: Model) => m.available);
@@ -68,8 +74,12 @@ function CreateContent() {
         toast.error('Failed to load models');
         // Fallback to default models
         setModels([
-          { id: 'dall-e-3', name: 'DALL-E 3', provider: 'OpenAI', available: true },
-          { id: 'stability-ai', name: 'Stability AI', provider: 'Stability AI', available: true },
+          { id: 'dall-e-3', name: 'DALL-E 3', provider: 'OpenAI', available: true, contentType: 'image' },
+          { id: 'stability-ai', name: 'Stability AI', provider: 'Stability AI', available: true, contentType: 'image' },
+        ]);
+        setFilteredModels([
+          { id: 'dall-e-3', name: 'DALL-E 3', provider: 'OpenAI', available: true, contentType: 'image' },
+          { id: 'stability-ai', name: 'Stability AI', provider: 'Stability AI', available: true, contentType: 'image' },
         ]);
       } finally {
         setLoadingModels(false);
@@ -77,11 +87,11 @@ function CreateContent() {
     };
 
     fetchModels();
-  }, []);
+  }, [contentType]);
 
   const handleUploadToIPFS = async () => {
-    if (!result || !result.imageBuffer) {
-      toast.error('No image data to upload');
+    if (!result || !result.contentBuffer) {
+      toast.error('No content data to upload');
       return;
     }
 
@@ -90,10 +100,11 @@ function CreateContent() {
       toast.loading('Uploading to IPFS...', { id: 'ipfs-upload' });
       
       const response = await api.artwork.uploadToIPFS({
-        imageBuffer: result.imageBuffer,
+        contentBuffer: result.contentBuffer,
         contentHash: result.contentHash,
         promptHash: result.promptHash,
         model: result.model,
+        contentType: result.contentType || contentType,
       });
 
       if (response.data.success) {
@@ -133,7 +144,9 @@ function CreateContent() {
 
     setGenerating(true);
     setResult(null);
-    setGenerationProgress('🎨 Generating image with AI...');
+    const contentTypeEmoji = contentType === 'text' ? '📝' : contentType === 'image' ? '🎨' : contentType === 'music' ? '🎵' : contentType === 'code' ? '💻' : '🎬';
+    const contentTypeLabel = contentType.charAt(0).toUpperCase() + contentType.slice(1);
+    setGenerationProgress(`${contentTypeEmoji} Generating ${contentType} with AI...`);
 
     try {
       // Start timer
@@ -142,8 +155,8 @@ function CreateContent() {
 
       // Update progress every 5 seconds
       const progressSteps = [
-        '🎨 Generating image with AI...',
-        '🎨 Still generating (AI models can take 30-60 seconds)...',
+        `${contentTypeEmoji} Generating ${contentType} with AI...`,
+        `${contentTypeEmoji} Still generating (AI models can take 30-60 seconds)...`,
         '📥 Downloading and computing hash...',
         '✅ Almost done...',
       ];
@@ -160,6 +173,7 @@ function CreateContent() {
       const response = await api.artwork.generate({
         prompt: prompt.trim(),
         model,
+        contentType,
         parameters: {
           size: '1024x1024',
           quality: 'standard',
@@ -175,7 +189,7 @@ function CreateContent() {
       setResult(response.data);
       setGenerationProgress('');
       
-      toast.success(`🎨 Image generated in ${(totalTime / 1000).toFixed(1)}s! (Upload to IPFS for permanent storage)`, { duration: 5000 });
+      toast.success(`${contentTypeEmoji} ${contentTypeLabel} generated in ${(totalTime / 1000).toFixed(1)}s! (Upload to IPFS for permanent storage)`, { duration: 5000 });
     } catch (error: any) {
       console.error('❌ Generation error:', error);
       console.error('Error response:', error.response?.data);
@@ -219,21 +233,63 @@ function CreateContent() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create Artwork</h1>
-          <p className="text-slate-400">Generate AI art with blockchain-verified provenance</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Create AI Content</h1>
+          <p className="text-slate-400">Generate verified AI content with blockchain provenance</p>
         </div>
 
         <form onSubmit={handleGenerate} className="space-y-6">
+          {/* Content Type Selection */}
+          <div>
+            <label className="block text-sm font-bold text-white mb-3">Content Type</label>
+            <div className="grid grid-cols-5 gap-3">
+              {(['text', 'image', 'music', 'code', 'video'] as ContentType[]).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setContentType(type)}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 transition-all ${
+                    contentType === type
+                      ? 'border-blue-500 bg-blue-500/10'
+                      : 'border-slate-800 bg-slate-900 hover:border-slate-700'
+                  }`}
+                  disabled={generating}
+                >
+                  <div className="text-2xl mb-2">
+                    {type === 'text' && '📝'}
+                    {type === 'image' && '🖼️'}
+                    {type === 'music' && '🎵'}
+                    {type === 'code' && '💻'}
+                    {type === 'video' && '🎬'}
+                  </div>
+                  <span className="text-sm font-medium text-white capitalize">{type}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-sm text-slate-400">
+              {contentType === 'text' && 'Generate text from an initial message chain for applications like story generation, dialogue systems, and creative writing'}
+              {contentType === 'image' && 'Generate images from text prompts'}
+              {contentType === 'music' && 'Generate music from text prompts'}
+              {contentType === 'code' && 'Generate code from text prompts'}
+              {contentType === 'video' && 'Generate short video clips'}
+            </p>
+          </div>
+
           {/* Prompt Input */}
           <div>
-            <label htmlFor="prompt" className="block text-sm font-medium text-white mb-2">
+            <label htmlFor="prompt" className="block text-sm font-bold text-white mb-2">
               Prompt
             </label>
             <textarea
               id="prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe the artwork you want to create..."
+              placeholder={
+                contentType === 'text' ? 'Enter your message or conversation...' :
+                contentType === 'image' ? 'Describe the image you want to create...' :
+                contentType === 'music' ? 'Describe the music you want to generate...' :
+                contentType === 'code' ? 'Describe the code you want to generate...' :
+                'A rotating 3D logo animation...'
+              }
               rows={4}
               className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               disabled={generating}
@@ -245,7 +301,7 @@ function CreateContent() {
 
           {/* Model Selection */}
           <div>
-            <label htmlFor="model" className="block text-sm font-medium text-white mb-2">
+            <label htmlFor="model" className="block text-sm font-bold text-white mb-2">
               AI Model
             </label>
             {loadingModels ? (
@@ -294,7 +350,7 @@ function CreateContent() {
                 Generating...
               </span>
             ) : (
-              'Generate Artwork'
+              `Generate ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`
             )}
           </button>
         </form>
@@ -307,7 +363,7 @@ function CreateContent() {
               <div className="flex-1">
                 <p className="text-blue-300 font-medium">{generationProgress}</p>
                 <p className="text-blue-200/60 text-sm mt-1">
-                  AI generation: 30-60 seconds • Image will appear immediately when ready
+                  AI generation: 30-60 seconds • Content will appear immediately when ready
                 </p>
               </div>
             </div>
@@ -317,14 +373,40 @@ function CreateContent() {
         {/* Result Display */}
         {result && (
           <div className="mt-8 p-6 bg-slate-900 border border-slate-800 rounded-lg">
-            <h2 className="text-xl font-semibold text-white mb-4">Generated Artwork</h2>
+            <h2 className="text-xl font-semibold text-white mb-4">Generated Content</h2>
             
             <div className="mb-4">
-              <img
-                src={result.imageUrl}
-                alt="Generated artwork"
-                className="w-full rounded-lg border border-slate-800"
-              />
+              {result.contentType === 'image' || !result.contentType ? (
+                <img
+                  src={result.contentUrl || result.imageUrl}
+                  alt="Generated content"
+                  className="w-full rounded-lg border border-slate-800"
+                />
+              ) : result.contentType === 'video' ? (
+                <video
+                  src={result.contentUrl || result.videoUrl}
+                  controls
+                  className="w-full rounded-lg border border-slate-800"
+                />
+              ) : result.contentType === 'music' ? (
+                <audio
+                  src={result.contentUrl || result.audioUrl}
+                  controls
+                  className="w-full rounded-lg border border-slate-800"
+                />
+              ) : result.contentType === 'text' ? (
+                <div className="p-4 bg-slate-800 rounded-lg border border-slate-800">
+                  <pre className="text-white whitespace-pre-wrap font-mono text-sm">{result.content || result.text}</pre>
+                </div>
+              ) : result.contentType === 'code' ? (
+                <div className="p-4 bg-slate-800 rounded-lg border border-slate-800">
+                  <pre className="text-white whitespace-pre-wrap font-mono text-sm">{result.content || result.code}</pre>
+                </div>
+              ) : (
+                <div className="p-4 bg-slate-800 rounded-lg border border-slate-800 text-white">
+                  Content generated successfully. URL: {result.contentUrl || result.imageUrl}
+                </div>
+              )}
             </div>
 
             <div className="space-y-3 text-sm">
@@ -453,12 +535,12 @@ function CreateContent() {
                   )}
                 </button>
                 <a
-                  href={result.imageUrl}
+                  href={result.contentUrl || result.imageUrl || result.videoUrl || result.audioUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-center"
                 >
-                  View Image
+                  View Content
                 </a>
               </div>
 
