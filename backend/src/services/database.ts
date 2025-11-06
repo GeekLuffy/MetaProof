@@ -29,34 +29,42 @@ export function getDatabasePool(): Pool {
 }
 
 export async function initializeDatabase(): Promise<void> {
-  const pool = getDatabasePool();
-  
-  // Create artworks table if it doesn't exist
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS artworks (
-      id SERIAL PRIMARY KEY,
-      content_hash VARCHAR(66) UNIQUE NOT NULL,
-      prompt_hash VARCHAR(66) NOT NULL,
-      creator_address VARCHAR(42) NOT NULL,
-      ipfs_cid VARCHAR(255) NOT NULL,
-      model_used VARCHAR(100) NOT NULL,
-      metadata_uri TEXT,
-      certificate_token_id BIGINT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-  `);
+  try {
+    const pool = getDatabasePool();
+    
+    // Create artworks table if it doesn't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS artworks (
+        id SERIAL PRIMARY KEY,
+        content_hash VARCHAR(66) UNIQUE NOT NULL,
+        prompt_hash VARCHAR(66) NOT NULL,
+        creator_address VARCHAR(42) NOT NULL,
+        ipfs_cid VARCHAR(255) NOT NULL,
+        model_used VARCHAR(100) NOT NULL,
+        metadata_uri TEXT,
+        certificate_token_id BIGINT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-  // Create index on creator_address for faster queries
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_creator_address ON artworks(creator_address);
-  `);
+    // Create index on creator_address for faster queries
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_creator_address ON artworks(creator_address);
+    `);
 
-  // Create index on content_hash for faster lookups
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_content_hash ON artworks(content_hash);
-  `);
+    // Create index on content_hash for faster lookups
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_content_hash ON artworks(content_hash);
+    `);
 
-  console.log('✅ Database tables initialized');
+    console.log('✅ Database tables initialized');
+  } catch (error: any) {
+    if (error.message?.includes('DATABASE_URL is not set')) {
+      console.warn('⚠️ Database not configured, continuing without database');
+    } else {
+      throw error;
+    }
+  }
 }
 

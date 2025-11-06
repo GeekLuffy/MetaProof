@@ -2,7 +2,8 @@
 
 import { useReadContract, useAccount } from 'wagmi';
 import { parseAbi } from 'viem';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '@/lib/api';
 
 const PROOF_OF_ART_ABI = parseAbi([
   'function getCreatorArtworks(address _creator) external view returns (bytes32[])',
@@ -33,8 +34,13 @@ const getContractAddress = (): `0x${string}` | undefined => {
 export function useArtworks() {
   const { address } = useAccount();
   const contractAddress = getContractAddress();
+  
+  // Database state
+  const [dbArtworks, setDbArtworks] = useState<any[]>([]);
+  const [isLoadingDb, setIsLoadingDb] = useState(false);
+  const [dbError, setDbError] = useState<any>(null);
 
-  // Get content hashes for user's artworks
+  // Get content hashes for user's artworks from blockchain (fallback)
   // Note: Use address as-is (don't lowercase) since contract stores it as registered
   const { data: contentHashes, isLoading: isLoadingHashes, refetch: refetchHashes, error: readError } = useReadContract({
     address: contractAddress,
@@ -43,9 +49,10 @@ export function useArtworks() {
     args: address ? [address as `0x${string}`] : undefined,
     query: {
       enabled: !!address && !!contractAddress,
-      refetchInterval: 3000, // Refetch every 3 seconds to catch new registrations
+      refetchInterval: 30000, // Refetch every 30 seconds (less frequent)
       refetchOnMount: true,
-      refetchOnWindowFocus: true,
+      refetchOnWindowFocus: false, // Don't refetch on window focus to reduce calls
+      retry: false, // Don't retry failed calls - it's expected if contract isn't deployed or no artworks
     },
   });
 
@@ -58,6 +65,51 @@ export function useArtworks() {
       enabled: !!contractAddress,
     },
   });
+
+  // Fetch artworks from database (primary source)
+  const fetchArtworksFromDb = async () => {
+    if (!address) {
+      setDbArtworks([]);
+      return;
+    }
+
+    setIsLoadingDb(true);
+    setDbError(null);
+    
+    try {
+      const response = await api.artwork.getAll(address);
+      if (response.data?.success && response.data?.artworks) {
+        setDbArtworks(response.data.artworks);
+        console.log('✅ Fetched artworks from database:', response.data.artworks.length);
+      } else {
+        setDbArtworks([]);
+      }
+    } catch (error: any) {
+      console.error('❌ Error fetching artworks from database:', error);
+      setDbError(error);
+      // Don't clear artworks on error, keep existing ones
+    } finally {
+      setIsLoadingDb(false);
+    }
+  };
+
+  // Fetch artworks on mount and when address changes
+  useEffect(() => {
+    if (!address) {
+      setDbArtworks([]);
+      return;
+    }
+    
+    fetchArtworksFromDb();
+    
+    // Set up periodic refresh (less frequent to reduce server load)
+    const interval = setInterval(() => {
+      fetchArtworksFromDb();
+    }, 15000); // Refresh every 15 seconds (reduced from 5 seconds)
+
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [address]);
 
   // Convert bytes32[] to string[]
   const convertHashes = (hashes: any): string[] => {
@@ -99,29 +151,43 @@ export function useArtworks() {
     }
   }, [address, contractAddress, refetchHashes]);
 
-  // Debug logging
+  // Debug logging (suppress expected errors)
   useEffect(() => {
+    // Only log errors if they're unexpected (not "no data" errors)
     if (readError) {
-      console.error('❌ Error reading artworks:', readError);
+      const errorMessage = readError?.message || '';
+      // Suppress common expected errors (contract not deployed, no data, etc.)
+      if (!errorMessage.includes('returned no data') && 
+          !errorMessage.includes('not a contract') &&
+          !errorMessage.includes('does not have the function')) {
+        console.error('❌ Unexpected error reading artworks:', readError);
+      }
+      // Silently handle expected errors - they're normal when contract isn't deployed or no artworks
     }
-    if (contentHashes !== undefined) {
+    // Only log successful reads in development
+    if (contentHashes !== undefined && process.env.NODE_ENV === 'development') {
       console.log('📊 Raw contentHashes from contract:', contentHashes);
-      console.log('📊 Type:', typeof contentHashes, Array.isArray(contentHashes));
-      console.log('📊 Address used:', address);
-      console.log('📊 Contract address:', contractAddress);
     }
   }, [contentHashes, readError, address, contractAddress]);
 
   const convertedHashes = convertHashes(contentHashes);
 
+  // Merge database artworks with blockchain hashes
+  // Prefer database as primary source, but also include blockchain hashes
+  const dbContentHashes = dbArtworks.map(a => a.contentHash?.toLowerCase()).filter(Boolean);
+  const allHashes = Array.from(new Set([...dbContentHashes, ...convertedHashes]));
+
   return {
-    artworks: [], // Keep for future expansion
-    contentHashes: convertedHashes,
+    artworks: dbArtworks, // Full artwork objects from database
+    contentHashes: allHashes.length > 0 ? allHashes : convertedHashes, // Use database first, fallback to blockchain
     certificateAddress: certificateAddress as string | undefined,
-    loading: isLoadingHashes,
+    loading: isLoadingDb || isLoadingHashes,
     contractAddress,
     hasContract: !!contractAddress,
-    refetch: refetchHashes, // Expose refetch function
+    refetch: async () => {
+      refetchHashes();
+      await fetchArtworksFromDb();
+    }, // Expose refetch function that updates both sources
   };
 }
 

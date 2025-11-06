@@ -85,6 +85,7 @@ export class IPFSService {
             ...this.getAuthHeaders(),
             ...formData.getHeaders(),
           },
+          timeout: 60000, // 60 second timeout for IPFS upload
         }
       );
 
@@ -122,6 +123,7 @@ export class IPFSService {
         data,
         {
           headers: this.getAuthHeaders(),
+          timeout: 30000, // 30 second timeout for JSON upload
         }
       );
 

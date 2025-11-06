@@ -39,14 +39,19 @@ export function useVerifyArtwork(contentHash?: string) {
   const formatHash = (hash: string): `0x${string}` | undefined => {
     if (!hash) return undefined;
     const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
-    if (cleanHash.length !== 64) return undefined;
-    return `0x${cleanHash}` as `0x${string}`;
+    if (cleanHash.length !== 64) {
+      console.warn(`⚠️ Invalid hash length: ${cleanHash.length}, expected 64. Hash: ${hash}`);
+      return undefined;
+    }
+    const formatted = `0x${cleanHash}` as `0x${string}`;
+    console.log('🔍 Formatted hash for verification:', formatted);
+    return formatted;
   };
 
   const formattedHash = formatHash(contentHash || '');
 
   // Check if content exists
-  const { data: exists, isLoading: isCheckingExists } = useReadContract({
+  const { data: exists, isLoading: isCheckingExists, error: existsError } = useReadContract({
     address: contractAddress,
     abi: PROOF_OF_ART_ABI,
     functionName: 'contentExists',
@@ -55,6 +60,16 @@ export function useVerifyArtwork(contentHash?: string) {
       enabled: !!contractAddress && !!formattedHash,
     },
   });
+
+  // Log the result
+  if (formattedHash && !isCheckingExists) {
+    console.log('✅ Verification check complete:', {
+      hash: formattedHash,
+      exists,
+      error: existsError,
+      contractAddress,
+    });
+  }
 
   // Get verification count
   const { data: verificationCount, isLoading: isLoadingCount } = useReadContract({

@@ -1,0 +1,30 @@
+# Development files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+
+# Package files (if you add build tools later)
+node_modules/
+package-lock.json
+
+# User data (don't commit these!)
+*.pem
+*.key
+secrets.json
+
+# Configuration with API keys (user must add their own)
+# config.js should be copied to config.local.js with real keys
+config.local.js
+

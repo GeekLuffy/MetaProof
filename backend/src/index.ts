@@ -52,7 +52,9 @@ app.get('/health', (req: Request, res: Response) => {
 import authRoutes from './routes/auth';
 import uploadRoutes from './routes/upload';
 import generateRoutes from './routes/generate';
+import artworksRoutes from './routes/artworks';
 import { initializeDatabase } from './services/database';
+import { artworkService } from './services/artworkService';
 
 // API Routes
 app.get('/api', (req: Request, res: Response) => {
@@ -79,13 +81,70 @@ app.use('/api/upload', uploadRoutes);
 // Generation routes (AI)
 app.use('/api/generate', generateRoutes);
 
-app.post('/api/verify', (req: Request, res: Response) => {
-  res.status(501).json({ message: 'Verification endpoint - Coming soon' });
-});
+// Artworks routes (database)
+app.use('/api/artworks', artworksRoutes);
 
-
-app.get('/api/artworks', (req: Request, res: Response) => {
-  res.status(501).json({ message: 'Artworks listing endpoint - Coming soon' });
+// Verify artwork endpoint
+app.post('/api/verify', async (req: Request, res: Response) => {
+  try {
+    const { contentHash, ipfsCID, fingerprint, timestamp, platform, model } = req.body;
+    
+    if (!contentHash) {
+      return res.status(400).json({
+        success: false,
+        error: 'contentHash is required'
+      });
+    }
+    
+    // Look up artwork in database
+    const artwork = await artworkService.getArtworkByContentHash(contentHash);
+    
+    if (!artwork) {
+      return res.json({
+        success: true,
+        verified: false,
+        message: 'Artwork not found in database',
+        details: {
+          contentHash,
+          registered: false
+        }
+      });
+    }
+    
+    // Verify IPFS CID matches if provided
+    let ipfsMatch = true;
+    if (ipfsCID && artwork.ipfsCID !== ipfsCID) {
+      ipfsMatch = false;
+    }
+    
+    // Artwork found and verified
+    res.json({
+      success: true,
+      verified: ipfsMatch,
+      message: ipfsMatch ? 'Artwork verified successfully' : 'IPFS CID mismatch',
+      artwork: {
+        contentHash: artwork.contentHash,
+        ipfsCID: artwork.ipfsCID,
+        modelUsed: artwork.modelUsed,
+        creatorAddress: artwork.creatorAddress,
+        certificateTokenId: artwork.certificateTokenId,
+        createdAt: artwork.createdAt
+      },
+      details: {
+        ipfsMatch,
+        registered: true,
+        registeredAt: artwork.createdAt
+      }
+    });
+    
+  } catch (error: any) {
+    console.error('Verification error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Verification failed',
+      message: error.message
+    });
+  }
 });
 
 // 404 handler

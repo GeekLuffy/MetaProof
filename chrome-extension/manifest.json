@@ -1,0 +1,61 @@
+{
+  "manifest_version": 3,
+  "name": "Proof of Art Tracker",
+  "version": "1.0.0",
+  "description": "Track and verify AI-generated art across platforms with cryptographic proof",
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "webRequest"
+  ],
+  "host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://chat.openai.com/*",
+        "*://chatgpt.com/*",
+        "*://gemini.google.com/*",
+        "*://*.midjourney.com/*",
+        "*://discord.com/*",
+        "*://www.bing.com/images/create/*",
+        "*://leonardo.ai/*",
+        "*://www.craiyon.com/*",
+        "*://stablediffusionweb.com/*"
+      ],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["injected.js", "config.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
+

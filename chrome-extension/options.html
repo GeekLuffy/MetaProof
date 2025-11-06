@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proof of Art - Settings</title>
+  <link rel="stylesheet" href="styles/options.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <h1>Proof of Art</h1>
+          <p>Extension Settings</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- General Settings -->
+      <section class="section">
+        <h2>General Settings</h2>
+        
+        <div class="setting-item">
+          <div class="setting-info">
+            <label for="trackingEnabled">Enable Tracking</label>
+            <p>Automatically track art generation on supported platforms</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="trackingEnabled" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <label for="autoUploadIPFS">Auto Upload to IPFS</label>
+            <p>Automatically upload generated art to IPFS for decentralized storage</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="autoUploadIPFS" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="setting-item">
+          <div class="setting-info">
+            <label for="showNotifications">Show Notifications</label>
+            <p>Display notifications when proofs are created</p>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="showNotifications" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- API Configuration -->
+      <section class="section">
+        <h2>API Configuration</h2>
+        
+        <div class="form-group">
+          <label for="apiEndpoint">Backend API Endpoint</label>
+          <input type="url" id="apiEndpoint" placeholder="http://localhost:5000" value="http://localhost:5000">
+          <small>Your Proof of Art backend API URL (default: http://localhost:5000)</small>
+        </div>
+      </section>
+
+      <!-- IPFS Configuration -->
+      <section class="section">
+        <h2>IPFS Storage Configuration</h2>
+        <p class="section-description">
+          Configure your IPFS storage provider. You need an API key from at least one provider.
+        </p>
+
+        <div class="tabs-config">
+          <button class="tab-btn active" data-tab="web3storage">Web3.Storage</button>
+          <button class="tab-btn" data-tab="nftstorage">NFT.Storage</button>
+          <button class="tab-btn" data-tab="pinata">Pinata</button>
+        </div>
+
+        <!-- Web3.Storage -->
+        <div class="tab-panel active" id="web3storage">
+          <div class="form-group">
+            <label for="web3StorageToken">Web3.Storage API Token</label>
+            <input type="password" id="web3StorageToken" placeholder="Enter your Web3.Storage token">
+            <small>Get your token from <a href="https://web3.storage" target="_blank">web3.storage</a></small>
+          </div>
+        </div>
+
+        <!-- NFT.Storage -->
+        <div class="tab-panel" id="nftstorage">
+          <div class="form-group">
+            <label for="nftStorageToken">NFT.Storage API Token</label>
+            <input type="password" id="nftStorageToken" placeholder="Enter your NFT.Storage token">
+            <small>Get your token from <a href="https://nft.storage" target="_blank">nft.storage</a></small>
+          </div>
+        </div>
+
+        <!-- Pinata -->
+        <div class="tab-panel" id="pinata">
+          <div class="form-group">
+            <label for="pinataApiKey">Pinata API Key</label>
+            <input type="password" id="pinataApiKey" placeholder="Enter your Pinata API key">
+          </div>
+          <div class="form-group">
+            <label for="pinataApiSecret">Pinata API Secret</label>
+            <input type="password" id="pinataApiSecret" placeholder="Enter your Pinata API secret">
+          </div>
+          <small>Get your credentials from <a href="https://pinata.cloud" target="_blank">pinata.cloud</a></small>
+        </div>
+      </section>
+
+      <!-- Supported Platforms -->
+      <section class="section">
+        <h2>Supported Platforms</h2>
+        <p class="section-description">
+          Enable or disable tracking for specific platforms
+        </p>
+
+        <div class="platforms-grid">
+          <div class="platform-card">
+            <div class="platform-icon">🎨</div>
+            <div class="platform-info">
+              <h3>Midjourney</h3>
+              <p>Discord-based AI art generator</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" class="platform-toggle" data-platform="midjourney" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="platform-card">
+            <div class="platform-icon">✨</div>
+            <div class="platform-info">
+              <h3>Gemini</h3>
+              <p>Google's AI assistant</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" class="platform-toggle" data-platform="gemini" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="platform-card">
+            <div class="platform-icon">🤖</div>
+            <div class="platform-info">
+              <h3>ChatGPT / DALL-E</h3>
+              <p>OpenAI's AI models</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" class="platform-toggle" data-platform="openai" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="platform-card">
+            <div class="platform-icon">🔍</div>
+            <div class="platform-info">
+              <h3>Bing Image Creator</h3>
+              <p>Microsoft's AI image generator</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" class="platform-toggle" data-platform="bing" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="platform-card">
+            <div class="platform-icon">🎭</div>
+            <div class="platform-info">
+              <h3>Leonardo.ai</h3>
+              <p>AI art platform</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" class="platform-toggle" data-platform="leonardo" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="platform-card">
+            <div class="platform-icon">🖼️</div>
+            <div class="platform-info">
+              <h3>Stable Diffusion</h3>
+              <p>Open source AI art model</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" class="platform-toggle" data-platform="stablediffusion" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- Data Management -->
+      <section class="section">
+        <h2>Data Management</h2>
+        
+        <div class="action-group">
+          <button id="exportData" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 1V11M8 11L11 8M8 11L5 8" stroke="currentColor" stroke-width="2"/>
+              <path d="M2 11V14H14V11" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Export All Proofs
+          </button>
+          
+          <button id="importData" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M8 11V1M8 1L11 4M8 1L5 4" stroke="currentColor" stroke-width="2"/>
+              <path d="M2 11V14H14V11" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Import Proofs
+          </button>
+          
+          <button id="clearData" class="btn btn-danger">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M2 4H14M6 2H10M6 7V12M10 7V12" stroke="currentColor" stroke-width="2"/>
+              <path d="M3 4L4 14H12L13 4" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Clear All Data
+          </button>
+        </div>
+      </section>
+
+      <!-- About -->
+      <section class="section">
+        <h2>About</h2>
+        <div class="about-info">
+          <p><strong>Version:</strong> 1.0.0</p>
+          <p><strong>Description:</strong> Track and verify AI-generated art with cryptographic proof</p>
+          <p><strong>Website:</strong> <a href="https://your-proof-of-art-website.com" target="_blank">your-proof-of-art-website.com</a></p>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <div class="save-status" id="saveStatus"></div>
+      <button id="saveSettings" class="btn btn-primary">
+        Save Settings
+      </button>
+    </footer>
+  </div>
+
+  <input type="file" id="importFileInput" accept=".json" style="display: none;">
+
+  <script src="options.js"></script>
+</body>
+</html>
+

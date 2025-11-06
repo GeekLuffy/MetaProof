@@ -33,9 +33,11 @@ function CreateContent() {
   const [models, setModels] = useState<Model[]>([]);
   const [loadingModels, setLoadingModels] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState('');
+  const [uploadingToIPFS, setUploadingToIPFS] = useState(false);
   const [result, setResult] = useState<any>(null);
   const { uploadFile } = useIPFS();
-  const { registerArtwork, isPending: isRegistering, isConfirming, isConfirmed } = useRegisterArtwork();
+  const { registerArtwork, isPending: isRegistering, isConfirming, isConfirmed, hash: txHash, error: txError } = useRegisterArtwork();
 
   // Fetch available models on mount
   useEffect(() => {
@@ -77,6 +79,44 @@ function CreateContent() {
     fetchModels();
   }, []);
 
+  const handleUploadToIPFS = async () => {
+    if (!result || !result.imageBuffer) {
+      toast.error('No image data to upload');
+      return;
+    }
+
+    setUploadingToIPFS(true);
+    try {
+      toast.loading('Uploading to IPFS...', { id: 'ipfs-upload' });
+      
+      const response = await api.artwork.uploadToIPFS({
+        imageBuffer: result.imageBuffer,
+        contentHash: result.contentHash,
+        promptHash: result.promptHash,
+        model: result.model,
+      });
+
+      if (response.data.success) {
+        // Update result with IPFS data
+        setResult({
+          ...result,
+          ipfsCID: response.data.ipfsCID,
+          imageUrl: response.data.ipfsUrl,
+          proofPackage: response.data.proofPackage,
+          metadataURI: response.data.metadataURI,
+          ipfsReady: true,
+        });
+        
+        toast.success('Successfully uploaded to IPFS! 🎉', { id: 'ipfs-upload' });
+      }
+    } catch (error: any) {
+      console.error('IPFS upload error:', error);
+      toast.error(error.response?.data?.message || 'Failed to upload to IPFS', { id: 'ipfs-upload' });
+    } finally {
+      setUploadingToIPFS(false);
+    }
+  };
+
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) {
@@ -93,8 +133,30 @@ function CreateContent() {
 
     setGenerating(true);
     setResult(null);
+    setGenerationProgress('🎨 Generating image with AI...');
 
     try {
+      // Start timer
+      const startTime = Date.now();
+      let updateInterval: NodeJS.Timeout | null = null;
+
+      // Update progress every 5 seconds
+      const progressSteps = [
+        '🎨 Generating image with AI...',
+        '🎨 Still generating (AI models can take 30-60 seconds)...',
+        '📥 Downloading and computing hash...',
+        '✅ Almost done...',
+      ];
+      let stepIndex = 0;
+
+      updateInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > 15000 && stepIndex < progressSteps.length - 1) {
+          stepIndex = Math.min(Math.floor(elapsed / 15000), progressSteps.length - 1);
+          setGenerationProgress(progressSteps[stepIndex]);
+        }
+      }, 5000);
+
       const response = await api.artwork.generate({
         prompt: prompt.trim(),
         model,
@@ -104,14 +166,16 @@ function CreateContent() {
         },
       });
 
+      if (updateInterval) clearInterval(updateInterval);
+
+      const totalTime = Date.now() - startTime;
       console.log('✅ Generation response received:', response.data);
-      setResult(response.data);
+      console.log(`⏱️ Total time: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}s)`);
       
-      if (response.data.warning) {
-        toast.success('Artwork generated! (Note: IPFS upload failed, using original URL)', { duration: 5000 });
-      } else {
-        toast.success('Artwork generated successfully!');
-      }
+      setResult(response.data);
+      setGenerationProgress('');
+      
+      toast.success(`🎨 Image generated in ${(totalTime / 1000).toFixed(1)}s! (Upload to IPFS for permanent storage)`, { duration: 5000 });
     } catch (error: any) {
       console.error('❌ Generation error:', error);
       console.error('Error response:', error.response?.data);
@@ -136,6 +200,7 @@ function CreateContent() {
       }
     } finally {
       setGenerating(false);
+      setGenerationProgress('');
     }
   };
 
@@ -195,11 +260,19 @@ function CreateContent() {
                 className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                 disabled={generating}
               >
-                {models.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.provider}){!m.available ? ' - Not configured' : ''}
-                  </option>
-                ))}
+                {models.length === 0 ? (
+                  <option value="">No models available</option>
+                ) : (
+                  models.map((m) => (
+                    <option 
+                      key={m.id} 
+                      value={m.id}
+                      disabled={!m.available && generating}
+                    >
+                      {m.name} ({m.provider}){!m.available ? ' - Not configured' : ''}
+                    </option>
+                  ))
+                )}
               </select>
             )}
             {models.find((m) => m.id === model)?.description && (
@@ -226,6 +299,21 @@ function CreateContent() {
           </button>
         </form>
 
+        {/* Progress Indicator */}
+        {generating && generationProgress && (
+          <div className="mt-6 p-4 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+            <div className="flex items-center gap-3">
+              <div className="w-6 h-6 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
+              <div className="flex-1">
+                <p className="text-blue-300 font-medium">{generationProgress}</p>
+                <p className="text-blue-200/60 text-sm mt-1">
+                  AI generation: 30-60 seconds • Image will appear immediately when ready
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Result Display */}
         {result && (
           <div className="mt-8 p-6 bg-slate-900 border border-slate-800 rounded-lg">
@@ -240,68 +328,200 @@ function CreateContent() {
             </div>
 
             <div className="space-y-3 text-sm">
-              <div>
-                <span className="text-slate-400">IPFS CID:</span>
-                <code className="ml-2 text-blue-400">{result.ipfsCID}</code>
+              {/* IPFS Status */}
+              {result.ipfsReady ? (
+                <div className="p-3 bg-green-900/20 border border-green-600/30 rounded">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-green-400">✅ Uploaded to IPFS</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400">IPFS CID:</span>
+                    <code className="ml-2 text-green-400 break-all text-xs">{result.ipfsCID}</code>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-yellow-400 font-medium">⚠️ Not on IPFS yet</span>
+                      </div>
+                      <p className="text-yellow-200/70 text-xs">
+                        Currently using temporary storage. Upload to IPFS for permanent, decentralized storage.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleUploadToIPFS}
+                      disabled={uploadingToIPFS}
+                      className="flex-shrink-0 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-700/50 text-white text-xs rounded transition-colors font-medium"
+                    >
+                      {uploadingToIPFS ? (
+                        <span className="flex items-center gap-1">
+                          <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Uploading...
+                        </span>
+                      ) : (
+                        'Upload to IPFS'
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Content Hash */}
+              <div className="p-3 bg-blue-900/20 border border-blue-600/30 rounded">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-blue-400 font-medium block mb-1">Content Hash (for verification):</span>
+                    <code className="text-xs text-blue-300 break-all block">{result.contentHash}</code>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(result.contentHash);
+                      toast.success('Hash copied to clipboard!');
+                    }}
+                    className="flex-shrink-0 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-xs text-blue-200/70 mt-2">
+                  ℹ️ Save this hash to verify your artwork later
+                </p>
               </div>
-              <div>
-                <span className="text-slate-400">Content Hash:</span>
-                <code className="ml-2 text-blue-400">{result.contentHash}</code>
-              </div>
+              
               <div>
                 <span className="text-slate-400">Model:</span>
                 <span className="ml-2 text-white">{result.model}</span>
               </div>
             </div>
 
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={async () => {
-                  if (!result) {
-                    toast.error('No artwork to register');
-                    return;
-                  }
+            <div className="mt-6 space-y-3">
+              <div className="flex gap-3">
+                <button
+                  onClick={async () => {
+                    if (!result) {
+                      toast.error('No artwork to register');
+                      return;
+                    }
 
-                  if (!result.contentHash || !result.promptHash || !result.ipfsCID) {
-                    toast.error('Missing required data for registration');
-                    return;
-                  }
+                    if (!result.ipfsReady) {
+                      toast.error('Please upload to IPFS first before blockchain registration');
+                      return;
+                    }
 
-                  try {
-                    await registerArtwork({
-                      contentHash: result.contentHash,
-                      promptHash: result.promptHash,
-                      ipfsCID: result.ipfsCID,
-                      modelUsed: result.model,
-                      metadataURI: result.metadataURI || `ipfs://${result.ipfsCID}`,
-                    });
-                  } catch (error: any) {
-                    console.error('Registration error:', error);
-                    toast.error(error.message || 'Failed to register artwork');
-                  }
-                }}
-                disabled={isRegistering || isConfirming || !result || !result.contentHash}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
-              >
-                {isRegistering || isConfirming ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    {isConfirming ? 'Confirming...' : 'Registering...'}
-                  </span>
-                ) : isConfirmed ? (
-                  '✅ Registered'
-                ) : (
-                  'Register on Blockchain'
-                )}
-              </button>
-              <a
-                href={result.imageUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-center"
-              >
-                View on IPFS
-              </a>
+                    if (!result.contentHash || !result.promptHash || !result.ipfsCID) {
+                      toast.error('Missing required data for registration');
+                      return;
+                    }
+
+                    try {
+                      await registerArtwork({
+                        contentHash: result.contentHash,
+                        promptHash: result.promptHash,
+                        ipfsCID: result.ipfsCID,
+                        modelUsed: result.model,
+                        metadataURI: result.metadataURI || `ipfs://${result.ipfsCID}`,
+                      });
+                    } catch (error: any) {
+                      console.error('Registration error:', error);
+                      toast.error(error.message || 'Failed to register artwork');
+                    }
+                  }}
+                  disabled={isRegistering || isConfirming || isConfirmed || !result || !result.ipfsReady}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                  title={!result?.ipfsReady ? 'Upload to IPFS first' : ''}
+                >
+                  {isRegistering ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Waiting for approval...
+                    </span>
+                  ) : isConfirming ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Confirming on blockchain...
+                    </span>
+                  ) : isConfirmed ? (
+                    '✅ Registered on Blockchain'
+                  ) : txError ? (
+                    '❌ Registration Failed - Retry'
+                  ) : !result?.ipfsReady ? (
+                    '🔒 Register on Blockchain (Upload to IPFS first)'
+                  ) : (
+                    'Register on Blockchain'
+                  )}
+                </button>
+                <a
+                  href={result.imageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-center"
+                >
+                  View Image
+                </a>
+              </div>
+
+              {/* Transaction Status */}
+              {(txHash || isConfirming || isConfirmed) && (
+                <div className={`p-3 rounded-lg text-sm ${
+                  isConfirmed 
+                    ? 'bg-green-900/20 border border-green-600/30' 
+                    : 'bg-blue-900/20 border border-blue-600/30'
+                }`}>
+                  <div className="space-y-2">
+                    {txHash && (
+                      <div>
+                        <span className={isConfirmed ? 'text-green-400' : 'text-blue-400'}>
+                          Transaction Hash:
+                        </span>
+                        <code className="ml-2 text-xs break-all">
+                          {txHash}
+                        </code>
+                        {process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL && (
+                          <a
+                            href={`${process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL}/tx/${txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`ml-2 ${isConfirmed ? 'text-green-400' : 'text-blue-400'} hover:underline`}
+                          >
+                            View on Explorer →
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    <div>
+                      <span className={isConfirmed ? 'text-green-300' : 'text-blue-300'}>
+                        {isConfirming && '⏳ Waiting for blockchain confirmation...'}
+                        {isConfirmed && '✅ Transaction confirmed! Your artwork is now on the blockchain.'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Error Display */}
+              {txError && (
+                <div className="p-3 bg-red-900/20 border border-red-600/30 rounded-lg text-sm">
+                  <div className="text-red-400">
+                    ❌ Blockchain registration failed
+                  </div>
+                  <div className="text-red-200/70 text-xs mt-1">
+                    Your artwork is saved in the database, but blockchain registration failed. 
+                    You can retry or verify it later.
+                  </div>
+                </div>
+              )}
+
+              {/* Verify Button - Only show after confirmed */}
+              {isConfirmed && (
+                <Link
+                  href={`/verify?hash=${result.contentHash}`}
+                  className="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-center"
+                >
+                  ✓ Verify Registration on Blockchain
+                </Link>
+              )}
             </div>
           </div>
         )}

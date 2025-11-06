@@ -1,21 +1,65 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useVerifyArtwork, useComputeHash } from '@/hooks/useVerifyArtwork';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
+import { api } from '@/lib/api';
 
 export default function VerifyPage() {
   const [inputMethod, setInputMethod] = useState<'hash' | 'file'>('hash');
   const [contentHash, setContentHash] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [dbArtwork, setDbArtwork] = useState<any>(null);
+  const [checkingDb, setCheckingDb] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check for hash in URL parameters
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const hashParam = params.get('hash');
+      if (hashParam) {
+        setContentHash(hashParam);
+        setInputMethod('hash');
+        toast.success('Hash loaded from URL');
+      }
+    }
+  }, []);
 
   const { computeHash, computing, hash: computedHash, error: computeError } = useComputeHash();
   const { exists, verificationCount, isLoading, hasContract, contractAddress } = useVerifyArtwork(
     inputMethod === 'hash' ? contentHash : computedHash || undefined
   );
+
+  const displayHash = inputMethod === 'hash' ? contentHash : computedHash;
+
+  // Check database when hash changes
+  useEffect(() => {
+    const checkDatabase = async () => {
+      if (!displayHash || displayHash.length !== 64) {
+        setDbArtwork(null);
+        return;
+      }
+
+      setCheckingDb(true);
+      try {
+        // Add 0x prefix if not present
+        const hashToCheck = displayHash.startsWith('0x') ? displayHash : `0x${displayHash}`;
+        const response = await api.artwork.getByHash(hashToCheck);
+        setDbArtwork(response.data.artwork);
+        console.log('✅ Found in database:', response.data.artwork);
+      } catch (error: any) {
+        console.log('ℹ️ Not found in database:', error.response?.status);
+        setDbArtwork(null);
+      } finally {
+        setCheckingDb(false);
+      }
+    };
+
+    checkDatabase();
+  }, [displayHash]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -68,12 +112,12 @@ export default function VerifyPage() {
     setContentHash('');
     setSelectedFile(null);
     setPreviewUrl(null);
+    setDbArtwork(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const displayHash = inputMethod === 'hash' ? contentHash : computedHash;
   const isValid = displayHash && displayHash.length === 64;
 
   return (
@@ -261,6 +305,88 @@ export default function VerifyPage() {
           )}
         </div>
 
+        {/* Debug Information */}
+        {isValid && (
+          <div className="mb-4 p-4 bg-slate-900/50 border border-slate-700 rounded-lg">
+            <details className="text-sm" open>
+              <summary className="text-slate-400 cursor-pointer hover:text-white mb-3">
+                🔍 Debug Information
+              </summary>
+              <div className="mt-3 space-y-3 font-mono text-xs">
+                <div className="pb-3 border-b border-slate-700">
+                  <div className="text-slate-500 mb-2 font-semibold">Hash Information:</div>
+                  <div className="ml-4 space-y-2">
+                    <div>
+                      <span className="text-slate-500">Hash Being Checked:</span>
+                      <code className="ml-2 text-yellow-400 break-all">
+                        {displayHash ? `0x${displayHash.replace(/^0x/, '')}` : 'None'}
+                      </code>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Hash Length:</span>
+                      <code className="ml-2 text-yellow-400">
+                        {displayHash ? displayHash.replace(/^0x/, '').length : 0} chars (need 64)
+                      </code>
+                    </div>
+                  </div>
+                </div>
+                {hasContract && (
+                  <div className="pb-3 border-b border-slate-700">
+                    <div className="text-slate-500 mb-2 font-semibold">Blockchain Status:</div>
+                    <div className="ml-4 space-y-2">
+                      <div>
+                        <span className="text-slate-500">Contract Address:</span>
+                        <code className="ml-2 text-yellow-400 break-all">{contractAddress}</code>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Exists on Chain:</span>
+                        <code className="ml-2 text-yellow-400">{exists ? '✅ true' : '❌ false'}</code>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Loading:</span>
+                        <code className="ml-2 text-yellow-400">{isLoading ? '⏳ true' : '✅ false'}</code>
+                      </div>
+                      {exists && (
+                        <div>
+                          <span className="text-slate-500">Verifications:</span>
+                          <code className="ml-2 text-yellow-400">{verificationCount}</code>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <div className="text-slate-500 mb-2 font-semibold">Database Status:</div>
+                  <div className="ml-4 space-y-2">
+                    <div>
+                      <span className="text-slate-500">Exists in DB:</span>
+                      <code className="ml-2 text-yellow-400">
+                        {checkingDb ? '⏳ checking...' : dbArtwork ? '✅ true' : '❌ false'}
+                      </code>
+                    </div>
+                    {dbArtwork && (
+                      <>
+                        <div>
+                          <span className="text-slate-500">Creator:</span>
+                          <code className="ml-2 text-yellow-400 break-all">{dbArtwork.creatorAddress}</code>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">IPFS CID:</span>
+                          <code className="ml-2 text-yellow-400">{dbArtwork.ipfsCID}</code>
+                        </div>
+                        <div>
+                          <span className="text-slate-500">Model Used:</span>
+                          <code className="ml-2 text-yellow-400">{dbArtwork.modelUsed}</code>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </details>
+          </div>
+        )}
+
         {/* Verification Result */}
         {isValid && hasContract && (
           <div className="mb-8">
@@ -307,6 +433,55 @@ export default function VerifyPage() {
                   </div>
                 </div>
               </div>
+            ) : dbArtwork && !exists ? (
+              <div className="p-6 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="text-yellow-500 text-3xl">⚠</div>
+                  <div className="flex-1">
+                    <h3 className="text-xl font-semibold text-yellow-400 mb-2">
+                      Partially Verified
+                    </h3>
+                    <p className="text-yellow-200/80 mb-4">
+                      This artwork is registered in the database but NOT on the blockchain.
+                    </p>
+                    <div className="space-y-2 text-sm text-yellow-200/70 mb-4">
+                      <p><strong>Possible reasons:</strong></p>
+                      <ul className="list-disc list-inside ml-4 space-y-1">
+                        <li>The blockchain transaction failed or wasn't completed</li>
+                        <li>You clicked "Register on Blockchain" but the transaction was rejected</li>
+                        <li>The contract address is incorrect or not deployed</li>
+                        <li>You're connected to a different network than where it was registered</li>
+                      </ul>
+                    </div>
+                    <div className="p-3 bg-yellow-900/30 rounded text-sm space-y-2">
+                      <div>
+                        <span className="text-yellow-300 font-medium">Creator:</span>
+                        <code className="ml-2 text-yellow-200 text-xs break-all">{dbArtwork.creatorAddress}</code>
+                      </div>
+                      <div>
+                        <span className="text-yellow-300 font-medium">IPFS CID:</span>
+                        <code className="ml-2 text-yellow-200">{dbArtwork.ipfsCID}</code>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex gap-3">
+                      <Link
+                        href="/create"
+                        className="inline-block text-sm px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors"
+                      >
+                        Register on Blockchain →
+                      </Link>
+                      <a
+                        href={`https://gateway.pinata.cloud/ipfs/${dbArtwork.ipfsCID}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-block text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
+                      >
+                        View on IPFS
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="p-6 bg-red-900/20 border border-red-600/30 rounded-lg">
                 <div className="flex items-start gap-3">
@@ -316,7 +491,7 @@ export default function VerifyPage() {
                       Not Verified
                     </h3>
                     <p className="text-red-200/80 mb-4">
-                      This artwork is not registered on the blockchain.
+                      This artwork is not registered on the blockchain or in the database.
                     </p>
                     <div className="space-y-2 text-sm text-red-200/70">
                       <p>This could mean:</p>
@@ -324,6 +499,7 @@ export default function VerifyPage() {
                         <li>The artwork was never registered</li>
                         <li>The hash doesn't match (file may be modified)</li>
                         <li>It's registered on a different network</li>
+                        <li>You're using the wrong hash</li>
                       </ul>
                     </div>
                     <div className="mt-4">

@@ -8,6 +8,7 @@
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
     "deploy:custom": "hardhat run scripts/deploy.js --network custom",
     "check-setup": "hardhat run scripts/check-setup.js --network custom",
+    "check-contract": "hardhat run scripts/check-contract.js --network localhost",
     "verify": "hardhat verify",
     "clean": "hardhat clean",
     "node": "hardhat node"

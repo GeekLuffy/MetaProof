@@ -75,6 +75,15 @@ export const api = {
       timeout: 300000, // 5 minutes for image generation
     }),
 
+    uploadToIPFS: (data: {
+      imageBuffer: string;
+      contentHash: string;
+      promptHash: string;
+      model: string;
+    }) => apiClient.post('/api/generate/upload-ipfs', data, {
+      timeout: 120000, // 2 minutes for IPFS upload
+    }),
+
     getModels: () => apiClient.get('/api/generate/models'),
 
     verify: (data: { contentHash?: string; ipfsCID?: string }) =>
@@ -84,6 +93,8 @@ export const api = {
       apiClient.get('/api/artworks', { params: { address } }),
 
     getById: (id: string) => apiClient.get(`/api/artworks/${id}`),
+
+    getByHash: (contentHash: string) => apiClient.get(`/api/artworks/${contentHash}`),
   },
 
   // IPFS upload

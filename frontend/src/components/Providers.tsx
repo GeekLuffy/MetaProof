@@ -32,6 +32,14 @@ if (typeof window !== 'undefined' && !(window as any).__CONSOLE_SUPPRESSED__) {
     if (message.includes('Lit is in dev mode') || message.includes('multiple versions of Lit')) {
       return;
     }
+    // Suppress expected blockchain contract errors (contract not deployed, no data, etc.)
+    if (message.includes('returned no data') ||
+        message.includes('not a contract') ||
+        message.includes('does not have the function') ||
+        message.includes('ContractFunctionExecutionError') ||
+        message.includes('ContractFunctionZeroDataError')) {
+      return; // These are expected when contract isn't deployed or no artworks registered
+    }
     originalError.apply(console, args);
   };
 
