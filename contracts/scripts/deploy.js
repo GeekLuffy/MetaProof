@@ -4,11 +4,38 @@ async function main() {
   console.log("🚀 Starting Proof-of-Art deployment...\n");
 
   // Get deployer account
-  const [deployer] = await hre.ethers.getSigners();
+  const signers = await hre.ethers.getSigners();
+  
+  if (!signers || signers.length === 0) {
+    console.error("❌ No signers found. Please check your configuration:");
+    console.error("   1. Make sure PRIVATE_KEY is set in your .env file (in the root directory)");
+    console.error("   2. Verify the .env file is in D:\\Proof-of-Art\\.env");
+    console.error("   3. Check that PRIVATE_KEY doesn't have quotes around it");
+    process.exit(1);
+  }
+  
+  const [deployer] = signers;
   console.log("📝 Deploying contracts with account:", deployer.address);
   
   const balance = await deployer.provider.getBalance(deployer.address);
-  console.log("💰 Account balance:", hre.ethers.formatEther(balance), "ETH\n");
+  const balanceInEth = parseFloat(hre.ethers.formatEther(balance));
+  console.log("💰 Account balance:", balanceInEth.toFixed(4), "MATIC");
+  
+  // Check if balance is sufficient (need at least 0.2 MATIC for deployment)
+  const minRequired = 0.2;
+  if (balanceInEth < minRequired) {
+    console.error("\n❌ Insufficient funds for deployment!");
+    console.error(`   Current balance: ${balanceInEth.toFixed(4)} MATIC`);
+    console.error(`   Recommended: At least ${minRequired} MATIC`);
+    console.error("\n💡 Get test MATIC from:");
+    console.error("   1. https://faucet.polygon.technology/ (select Polygon Amoy)");
+    console.error("   2. https://www.alchemy.com/faucets/polygon-amoy");
+    console.error("   3. https://faucet.quicknode.com/polygon/amoy");
+    console.error(`\n   Your address: ${deployer.address}`);
+    process.exit(1);
+  }
+  
+  console.log("✅ Sufficient balance for deployment\n");
 
   // Deploy ProofOfArt contract (which also deploys ProofCertificate)
   console.log("📄 Deploying ProofOfArt contract...");
@@ -82,8 +109,19 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("❌ Deployment failed:");
-    console.error(error);
+    console.error("\n❌ Deployment failed:");
+    
+    // Check for insufficient funds error
+    if (error.message && error.message.includes("insufficient funds")) {
+      console.error("\n💡 Insufficient funds for gas fees!");
+      console.error("   Get more test MATIC from:");
+      console.error("   1. https://faucet.polygon.technology/ (select Polygon Amoy)");
+      console.error("   2. https://www.alchemy.com/faucets/polygon-amoy");
+      console.error("   3. https://faucet.quicknode.com/polygon/amoy");
+    } else {
+      console.error(error.message || error);
+    }
+    
     process.exit(1);
   });
 

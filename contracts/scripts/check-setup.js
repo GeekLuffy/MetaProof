@@ -1,0 +1,76 @@
+const hre = require("hardhat");
+const path = require("path");
+
+// Load .env from root directory (one level up from contracts/)
+require("dotenv").config({ path: path.join(__dirname, "../../.env") });
+
+async function main() {
+  console.log("🔍 Checking testnet setup...\n");
+
+  // Check environment variables
+  const privateKey = process.env.PRIVATE_KEY;
+  const rpcUrl = process.env.POLYGON_AMOY_RPC_URL || "https://rpc-amoy.polygon.technology";
+
+  if (!privateKey) {
+    console.error("❌ PRIVATE_KEY not found in environment variables");
+    console.log("\n   Troubleshooting:");
+    console.log("   1. Make sure .env file exists in: D:\\Proof-of-Art\\.env");
+    console.log("   2. Add PRIVATE_KEY=your_private_key_here (no quotes)");
+    console.log("   3. Make sure you're running from: D:\\Proof-of-Art\\contracts");
+    console.log("   4. The .env file should be in the root directory, not in contracts/");
+    process.exit(1);
+  }
+
+  console.log("✅ PRIVATE_KEY found");
+
+  // Check network connection
+  try {
+    const provider = new hre.ethers.JsonRpcProvider(rpcUrl);
+    const network = await provider.getNetwork();
+    
+    if (network.chainId !== 80002n) {
+      console.error(`❌ Wrong network! Expected chain ID 80002 (Polygon Amoy), got ${network.chainId}`);
+      process.exit(1);
+    }
+
+    console.log(`✅ Connected to Polygon Amoy (Chain ID: ${network.chainId})`);
+
+    // Check account balance
+    const wallet = new hre.ethers.Wallet(privateKey, provider);
+    const balance = await provider.getBalance(wallet.address);
+    const balanceInEth = hre.ethers.formatEther(balance);
+
+    console.log(`✅ Wallet address: ${wallet.address}`);
+    console.log(`💰 Balance: ${balanceInEth} MATIC`);
+
+    if (parseFloat(balanceInEth) < 0.01) {
+      console.warn("\n⚠️  Low balance! You may need more MATIC for deployment.");
+      console.log("   Get test MATIC from: https://faucet.polygon.technology/");
+    } else {
+      console.log("✅ Sufficient balance for deployment");
+    }
+
+    console.log("\n🎉 Setup looks good! You're ready to deploy.");
+    console.log("\nNext steps:");
+    console.log("  1. Run: npm run deploy:testnet");
+    console.log("  2. Copy the deployed contract address");
+    console.log("  3. Add NEXT_PUBLIC_PROOF_OF_ART_ADDRESS to your .env file");
+    console.log("  4. Restart your frontend dev server");
+
+  } catch (error) {
+    console.error("❌ Error connecting to network:", error.message);
+    console.log("\nTroubleshooting:");
+    console.log("  - Check your internet connection");
+    console.log("  - Verify POLYGON_AMOY_RPC_URL is correct");
+    console.log("  - Try an alternative RPC URL if needed");
+    process.exit(1);
+  }
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error("❌ Setup check failed:", error);
+    process.exit(1);
+  });
+

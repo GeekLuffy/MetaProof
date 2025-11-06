@@ -9,7 +9,7 @@ Proof-of-Art establishes immutable authorship links between creators, their prom
 ## 🚀 Features
 
 ### Core Features
-- ✅ **Secure Art Generation** - Multi-model AI integration (DALL-E 3, Stability AI)
+- ✅ **Secure Art Generation** - Multi-model AI integration (DALL-E 3, Stability AI, Bytez Models)
 - ✅ **Cryptographic Linking** - Tamper-proof connection between creator, prompt, and output
 - ✅ **Blockchain Verification** - Immutable on-chain proof of creation
 - ✅ **IPFS Storage** - Decentralized content storage with Arweave backup
@@ -72,7 +72,7 @@ Proof-of-Art establishes immutable authorship links between creators, their prom
 - **Blockchain**: Polygon/Base (low gas costs)
 - **Storage**: IPFS (Pinata), Arweave (permanent backup)
 - **Smart Contracts**: Solidity 0.8.x, Hardhat, OpenZeppelin
-- **AI APIs**: OpenAI DALL-E 3, Stability AI, Anthropic Claude
+- **AI APIs**: OpenAI DALL-E 3, Stability AI, Bytez Models
 - **Biometric**: TensorFlow.js (facial landmark hashing)
 - **Database**: PostgreSQL (off-chain metadata cache)
 - **ZK-Proofs**: SnarkJS

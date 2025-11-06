@@ -21,6 +21,7 @@ export class AIService {
       });
     }
     this.stabilityApiKey = STABILITY_API_KEY;
+    
     if (BYTEZ_API_KEY) {
       try {
         this.bytezSdk = new Bytez(BYTEZ_API_KEY);
