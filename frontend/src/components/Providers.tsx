@@ -2,10 +2,11 @@
 
 import { ReactNode } from 'react';
 import { WagmiProvider } from 'wagmi';
-import { polygonAmoy, polygon } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
+import { yourChainConfig, YOUR_CHAIN_ID, YOUR_CHAIN_ID_HEX } from '@/config/yourChain';
+import type { Chain } from 'viem';
 
 // Suppress console errors and warnings from third-party packages (only once)
 if (typeof window !== 'undefined' && !(window as any).__CONSOLE_SUPPRESSED__) {
@@ -50,10 +51,42 @@ if (typeof window !== 'undefined' && !(window as any).__CONSOLE_SUPPRESSED__) {
 
 const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '';
 
+// Define custom chain for wagmi (using Chain type from viem)
+const customChain = {
+  id: YOUR_CHAIN_ID,
+  name: yourChainConfig.name,
+  nativeCurrency: yourChainConfig.nativeCurrency,
+  rpcUrls: {
+    default: {
+      http: yourChainConfig.rpcUrls.default.http as [string, ...string[]],
+    },
+    public: {
+      http: yourChainConfig.rpcUrls.public.http as [string, ...string[]],
+    },
+  },
+  blockExplorers: yourChainConfig.blockExplorers.default.url
+    ? {
+        default: {
+          name: yourChainConfig.blockExplorers.default.name,
+          url: yourChainConfig.blockExplorers.default.url,
+        },
+      }
+    : undefined,
+  testnet: yourChainConfig.testnet,
+  // EIP-1559: Zero gas fees configuration
+  fees: {
+    gasPrice: {
+      slow: { gwei: '0' },
+      standard: { gwei: '0' },
+      fast: { gwei: '0' },
+    },
+  },
+} as Chain;
+
 const config = getDefaultConfig({
   appName: 'Proof-of-Art',
   projectId: projectId || '00000000000000000000000000000000', // Use dummy ID if not set to avoid errors
-  chains: [polygonAmoy, polygon],
+  chains: [customChain],
   ssr: true,
 });
 

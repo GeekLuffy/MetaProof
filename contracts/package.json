@@ -6,10 +6,8 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
-    "deploy:testnet": "hardhat run scripts/deploy.js --network amoy",
-    "deploy:amoy": "hardhat run scripts/deploy.js --network amoy",
-    "deploy:polygon": "hardhat run scripts/deploy.js --network polygon",
-    "check-setup": "hardhat run scripts/check-setup.js --network amoy",
+    "deploy:custom": "hardhat run scripts/deploy.js --network custom",
+    "check-setup": "hardhat run scripts/check-setup.js --network custom",
     "verify": "hardhat verify",
     "clean": "hardhat clean",
     "node": "hardhat node"

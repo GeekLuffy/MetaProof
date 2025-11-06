@@ -155,7 +155,7 @@ export class ProofService {
       properties: {
         category: 'AI Art Certificate',
         verified: true,
-        blockchain: 'Polygon',
+        blockchain: process.env.YOUR_CHAIN_NAME || 'Proof-of-Art Network',
         ipfsCID: proofPackage.output.ipfsCID,
         proofPackage: proofPackage,
       },

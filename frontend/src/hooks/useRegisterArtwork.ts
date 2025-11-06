@@ -81,6 +81,9 @@ export function useRegisterArtwork() {
           params.modelUsed,
           params.metadataURI,
         ],
+        // EIP-1559: Zero gas fees (free transactions)
+        maxFeePerGas: 0n, // Maximum total fee per gas
+        maxPriorityFeePerGas: 0n, // Priority fee per gas
       });
 
       toast.loading('Transaction submitted. Waiting for confirmation...', { id: 'register-tx' });

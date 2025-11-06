@@ -20,36 +20,44 @@ module.exports = {
   networks: {
     hardhat: {
       chainId: 31337,
+      hardfork: "london", // Enables EIP-1559
+      // EIP-1559: Zero gas fees configuration
+      gasPrice: 0, // Legacy transactions
+      initialBaseFeePerGas: 0, // Base fee set to 0 (EIP-1559)
     },
     localhost: {
-      url: "http://127.0.0.1:8545",
+      url: process.env.YOUR_CHAIN_LOCAL_RPC_URL || "http://127.0.0.1:8545",
+      chainId: parseInt(process.env.YOUR_CHAIN_ID || "31337"),
+      // EIP-1559: Zero gas fees configuration
+      gasPrice: 0, // Legacy transactions
     },
-    amoy: {
-      url: process.env.POLYGON_AMOY_RPC_URL || "https://rpc-amoy.polygon.technology",
+    custom: {
+      url: process.env.YOUR_CHAIN_RPC_URL || "https://p01--poa-chain--wdqd5crrcgfg.code.run/",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 80002,
-    },
-    polygon: {
-      url: process.env.POLYGON_MAINNET_RPC_URL || "",
-      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
-      chainId: 137,
+      chainId: parseInt(process.env.YOUR_CHAIN_ID || "31337"),
+      timeout: 60000,
+      // EIP-1559: Zero gas fees configuration
+      gasPrice: 0, // Legacy transactions
+      maxFeePerGas: 0, // EIP-1559 transactions
+      maxPriorityFeePerGas: 0, // EIP-1559 transactions
     },
   },
   etherscan: {
     apiKey: {
-      polygonAmoy: process.env.POLYGONSCAN_API_KEY || "",
-      polygon: process.env.POLYGONSCAN_API_KEY || "",
+      custom: process.env.YOUR_CHAIN_EXPLORER_API_KEY || "",
     },
-    customChains: [
-      {
-        network: "polygonAmoy",
-        chainId: 80002,
-        urls: {
-          apiURL: "https://api-amoy.polygonscan.com/api",
-          browserURL: "https://amoy.polygonscan.com"
-        }
-      }
-    ]
+    customChains: process.env.YOUR_CHAIN_EXPLORER_URL
+      ? [
+          {
+            network: "custom",
+            chainId: parseInt(process.env.YOUR_CHAIN_ID || "31337"),
+            urls: {
+              apiURL: process.env.YOUR_CHAIN_EXPLORER_API_URL || "",
+              browserURL: process.env.YOUR_CHAIN_EXPLORER_URL || "",
+            },
+          },
+        ]
+      : [],
   },
   gasReporter: {
     enabled: process.env.REPORT_GAS === "true",

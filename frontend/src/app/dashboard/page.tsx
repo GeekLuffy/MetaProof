@@ -18,7 +18,7 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { address } = useAccount();
-  const { contentHashes, certificateAddress, loading, contractAddress, hasContract } = useArtworks();
+  const { contentHashes, certificateAddress, loading, contractAddress, hasContract, refetch } = useArtworks();
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, label: string) => {
@@ -98,13 +98,13 @@ function DashboardContent() {
                   Contract Not Deployed
                 </h3>
                 <p className="text-yellow-200/80 mb-4">
-                  The Proof-of-Art contract needs to be deployed to Polygon Amoy testnet before you can register artworks on the blockchain.
+                  The Proof-of-Art contract needs to be deployed to your custom blockchain network before you can register artworks on the blockchain.
                 </p>
                 <div className="space-y-2 text-sm text-yellow-200/70">
                   <p><strong>Steps to deploy:</strong></p>
                   <ol className="list-decimal list-inside space-y-1 ml-4">
-                    <li>Get test MATIC from <a href="https://faucet.polygon.technology/" target="_blank" rel="noopener noreferrer" className="text-yellow-400 hover:underline">Polygon Faucet</a></li>
-                    <li>Run: <code className="bg-slate-950 px-2 py-1 rounded">cd contracts && npm run deploy:testnet</code></li>
+                    <li>Ensure your custom blockchain node is running</li>
+                    <li>Run: <code className="bg-slate-950 px-2 py-1 rounded">cd contracts && npm run deploy:custom</code></li>
                     <li>Copy the deployed contract address</li>
                     <li>Add to .env: <code className="bg-slate-950 px-2 py-1 rounded">NEXT_PUBLIC_PROOF_OF_ART_ADDRESS=0x...</code></li>
                     <li>Restart the dev server</li>
@@ -196,14 +196,18 @@ function DashboardContent() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-blue-300 mb-2">Option 2: View on Block Explorer</p>
-                    <a
-                      href={`https://amoy.polygonscan.com/address/${address}#tokentxnsErc721`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-blue-400 hover:underline"
-                    >
-                      View your NFTs on Amoy PolygonScan →
-                    </a>
+                    {process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL ? (
+                      <a
+                        href={`${process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL}/address/${address}#tokentxnsErc721`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-400 hover:underline"
+                      >
+                        View your NFTs on Block Explorer →
+                      </a>
+                    ) : (
+                      <p className="text-sm text-blue-200/70">Block explorer URL not configured</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -213,7 +217,18 @@ function DashboardContent() {
 
         {/* Artworks List */}
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
-          <h2 className="text-xl font-semibold text-white mb-4">My Artworks</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-white">My Artworks</h2>
+            {hasContract && (
+              <button
+                onClick={() => refetch()}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
+              >
+                {loading ? 'Refreshing...' : 'Refresh'}
+              </button>
+            )}
+          </div>
           
           {loading ? (
             <div className="text-center py-12">

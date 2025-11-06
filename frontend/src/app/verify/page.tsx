@@ -296,7 +296,7 @@ export default function VerifyPage() {
                     </div>
                     <div className="mt-4 pt-4 border-t border-green-600/30">
                       <a
-                        href={`https://amoy.polygonscan.com/address/${contractAddress}`}
+                        href={`${process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL || ''}/address/${contractAddress}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-green-400 hover:underline"

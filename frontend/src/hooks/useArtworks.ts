@@ -2,7 +2,7 @@
 
 import { useReadContract, useAccount } from 'wagmi';
 import { parseAbi } from 'viem';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 
 const PROOF_OF_ART_ABI = parseAbi([
   'function getCreatorArtworks(address _creator) external view returns (bytes32[])',
@@ -33,17 +33,19 @@ const getContractAddress = (): `0x${string}` | undefined => {
 export function useArtworks() {
   const { address } = useAccount();
   const contractAddress = getContractAddress();
-  const [artworks, setArtworks] = useState<Artwork[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Get content hashes for user's artworks
-  const { data: contentHashes, isLoading: isLoadingHashes } = useReadContract({
+  // Note: Use address as-is (don't lowercase) since contract stores it as registered
+  const { data: contentHashes, isLoading: isLoadingHashes, refetch: refetchHashes, error: readError } = useReadContract({
     address: contractAddress,
     abi: PROOF_OF_ART_ABI,
     functionName: 'getCreatorArtworks',
-    args: address ? [address] : undefined,
+    args: address ? [address as `0x${string}`] : undefined,
     query: {
       enabled: !!address && !!contractAddress,
+      refetchInterval: 3000, // Refetch every 3 seconds to catch new registrations
+      refetchOnMount: true,
+      refetchOnWindowFocus: true,
     },
   });
 
@@ -57,36 +59,69 @@ export function useArtworks() {
     },
   });
 
-  useEffect(() => {
-    async function fetchArtworks() {
-      if (!contentHashes || !contractAddress || !address) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        // This would ideally use multicall, but for simplicity we'll note it needs contract integration
-        // For now, return empty array since we can't easily read multiple contracts in this hook
-        setArtworks([]);
-      } catch (error) {
-        console.error('Error fetching artworks:', error);
-        setArtworks([]);
-      } finally {
-        setLoading(false);
-      }
+  // Convert bytes32[] to string[]
+  const convertHashes = (hashes: any): string[] => {
+    if (!hashes) {
+      return [];
     }
+    
+    // Handle different return formats from wagmi
+    if (Array.isArray(hashes)) {
+      return hashes.map((hash) => {
+        if (typeof hash === 'string') {
+          // Already a string, ensure it has 0x prefix and is lowercase
+          const normalized = hash.startsWith('0x') ? hash : `0x${hash}`;
+          return normalized.toLowerCase();
+        }
+        // Convert BigInt to hex string
+        if (typeof hash === 'bigint') {
+          const hex = hash.toString(16);
+          return `0x${hex.padStart(64, '0')}`.toLowerCase();
+        }
+        // Convert number to hex string
+        if (typeof hash === 'number') {
+          return `0x${hash.toString(16).padStart(64, '0')}`.toLowerCase();
+        }
+        // Try to convert to string
+        const str = String(hash);
+        return str.startsWith('0x') ? str.toLowerCase() : `0x${str}`.toLowerCase();
+      }).filter((hash) => hash && hash !== '0x0000000000000000000000000000000000000000000000000000000000000000');
+    }
+    
+    return [];
+  };
 
-    fetchArtworks();
-  }, [contentHashes, contractAddress, address]);
+  // Expose refetch function for manual refresh
+  useEffect(() => {
+    // Refetch when address or contract changes
+    if (address && contractAddress) {
+      refetchHashes();
+    }
+  }, [address, contractAddress, refetchHashes]);
+
+  // Debug logging
+  useEffect(() => {
+    if (readError) {
+      console.error('❌ Error reading artworks:', readError);
+    }
+    if (contentHashes !== undefined) {
+      console.log('📊 Raw contentHashes from contract:', contentHashes);
+      console.log('📊 Type:', typeof contentHashes, Array.isArray(contentHashes));
+      console.log('📊 Address used:', address);
+      console.log('📊 Contract address:', contractAddress);
+    }
+  }, [contentHashes, readError, address, contractAddress]);
+
+  const convertedHashes = convertHashes(contentHashes);
 
   return {
-    artworks,
-    contentHashes: contentHashes as string[] | undefined,
+    artworks: [], // Keep for future expansion
+    contentHashes: convertedHashes,
     certificateAddress: certificateAddress as string | undefined,
-    loading: loading || isLoadingHashes,
+    loading: isLoadingHashes,
     contractAddress,
     hasContract: !!contractAddress,
+    refetch: refetchHashes, // Expose refetch function
   };
 }
 

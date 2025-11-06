@@ -144,7 +144,7 @@ export function createArtworkMetadata(data: {
     properties: {
       category: 'AI-Generated Art',
       verified: true,
-      blockchain: 'Polygon',
+      blockchain: process.env.NEXT_PUBLIC_YOUR_CHAIN_NAME || 'Proof-of-Art Network',
     },
   };
 }

@@ -52,6 +52,7 @@ app.get('/health', (req: Request, res: Response) => {
 import authRoutes from './routes/auth';
 import uploadRoutes from './routes/upload';
 import generateRoutes from './routes/generate';
+import { initializeDatabase } from './services/database';
 
 // API Routes
 app.get('/api', (req: Request, res: Response) => {
@@ -101,9 +102,22 @@ app.use((err: Error, req: Request, res: Response, next: any) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`
+// Initialize database and start server
+async function startServer() {
+  try {
+    // Initialize database if DATABASE_URL is set
+    if (process.env.DATABASE_URL) {
+      await initializeDatabase();
+    } else {
+      console.warn('⚠️ DATABASE_URL not set - database features disabled');
+    }
+  } catch (error: any) {
+    console.error('❌ Database initialization error:', error.message);
+    // Continue without database
+  }
+
+  app.listen(PORT, () => {
+    console.log(`
   ╔═══════════════════════════════════════╗
   ║   🎨 Proof-of-Art Backend Server      ║
   ║                                       ║
@@ -114,7 +128,10 @@ app.listen(PORT, () => {
   ║   Health: http://localhost:${PORT}/health║
   ╚═══════════════════════════════════════╝
   `);
-});
+  });
+}
+
+startServer();
 
 export default app;
 

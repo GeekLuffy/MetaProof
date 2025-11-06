@@ -19,19 +19,16 @@ async function main() {
   
   const balance = await deployer.provider.getBalance(deployer.address);
   const balanceInEth = parseFloat(hre.ethers.formatEther(balance));
-  console.log("💰 Account balance:", balanceInEth.toFixed(4), "MATIC");
+  console.log("💰 Account balance:", balanceInEth.toFixed(4), "ETH");
   
-  // Check if balance is sufficient (need at least 0.2 MATIC for deployment)
-  const minRequired = 0.2;
+  // Check if balance is sufficient (need at least 0.1 ETH for deployment)
+  const minRequired = 0.1;
   if (balanceInEth < minRequired) {
     console.error("\n❌ Insufficient funds for deployment!");
-    console.error(`   Current balance: ${balanceInEth.toFixed(4)} MATIC`);
-    console.error(`   Recommended: At least ${minRequired} MATIC`);
-    console.error("\n💡 Get test MATIC from:");
-    console.error("   1. https://faucet.polygon.technology/ (select Polygon Amoy)");
-    console.error("   2. https://www.alchemy.com/faucets/polygon-amoy");
-    console.error("   3. https://faucet.quicknode.com/polygon/amoy");
-    console.error(`\n   Your address: ${deployer.address}`);
+    console.error(`   Current balance: ${balanceInEth.toFixed(4)} ETH`);
+    console.error(`   Recommended: At least ${minRequired} ETH`);
+    console.error("\n💡 Ensure your custom blockchain node is running and your account has sufficient funds.");
+    console.error(`   Your address: ${deployer.address}`);
     process.exit(1);
   }
   
@@ -114,10 +111,7 @@ main()
     // Check for insufficient funds error
     if (error.message && error.message.includes("insufficient funds")) {
       console.error("\n💡 Insufficient funds for gas fees!");
-      console.error("   Get more test MATIC from:");
-      console.error("   1. https://faucet.polygon.technology/ (select Polygon Amoy)");
-      console.error("   2. https://www.alchemy.com/faucets/polygon-amoy");
-      console.error("   3. https://faucet.quicknode.com/polygon/amoy");
+      console.error("   Ensure your custom blockchain node is running and your account has sufficient ETH.");
     } else {
       console.error(error.message || error);
     }
