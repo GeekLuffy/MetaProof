@@ -1,6 +1,6 @@
 # 🎨 MetaProof - Blockchain-Based AI Art Verification System
 
-> The world's first blockchain-verified creative provenance system for AI-generated art. Own your creativity. Prove your originality.
+> One of the best blockchain-verified creative provenance system for AI-generated art. Own your creativity. Prove your originality.
 
 ## 🌟 Overview
 
