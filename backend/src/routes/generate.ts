@@ -200,8 +200,14 @@ router.post(
         });
       }
 
+      // Get biometricData from request body if provided
+      const { biometricData } = req.body;
+      
       // Step 2: Create proof package
       console.log(`📦 [Step 2/4] Creating proof package...`);
+      if (biometricData) {
+        console.log(`🔐 Including biometric proof-of-human data`);
+      }
       const proofPackage = await proofService.createArtworkProof({
         creatorAddress,
         prompt: '', // Prompt not stored for privacy
@@ -209,6 +215,7 @@ router.post(
         ipfsCID: ipfsResult.cid,
         modelUsed: model || 'unknown',
         parameters: {},
+        biometricData: biometricData || undefined,
         encryptPrompt: false,
       });
       console.log(`✅ [Step 2/4] Proof package created`);

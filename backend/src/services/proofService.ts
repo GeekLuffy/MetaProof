@@ -33,6 +33,17 @@ export class ProofService {
       proofPackage.creative.parentArtworkId = data.parentArtworkId;
     }
 
+    // Add biometric proof-of-human data if provided
+    if (data.biometricData) {
+      proofPackage.creator.biometricProof = {
+        facialHash: data.biometricData.facialHash,
+        signature: data.biometricData.signature,
+        timestamp: data.biometricData.timestamp,
+        verified: data.biometricData.verified || true,
+        entropy: data.biometricData.entropy,
+      };
+    }
+
     // Verify the package is valid
     if (!verifyProofPackage(proofPackage)) {
       throw new Error('Generated proof package is invalid');

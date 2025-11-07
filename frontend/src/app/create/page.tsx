@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { FacialCapture, BiometricData } from '@/components/FacialCapture';
 import { api } from '@/lib/api';
 import { useIPFS } from '@/hooks/useIPFS';
 import { useRegisterArtwork } from '@/hooks/useRegisterArtwork';
@@ -41,6 +42,8 @@ function CreateContent() {
   const [generationProgress, setGenerationProgress] = useState('');
   const [uploadingToIPFS, setUploadingToIPFS] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const [biometricData, setBiometricData] = useState<BiometricData | null>(null);
+  const [showFacialCapture, setShowFacialCapture] = useState(false);
   const { uploadFile } = useIPFS();
   const { registerArtwork, isPending: isRegistering, isConfirming, isConfirmed, hash: txHash, error: txError } = useRegisterArtwork();
 
@@ -105,6 +108,7 @@ function CreateContent() {
         promptHash: result.promptHash,
         model: result.model,
         contentType: result.contentType || contentType,
+        biometricData: biometricData || undefined,
       });
 
       if (response.data.success) {
@@ -140,6 +144,22 @@ function CreateContent() {
     if (!token) {
       toast.error('Please authenticate with your wallet first');
       return;
+    }
+
+    // Check biometric verification
+    if (!biometricData) {
+      const shouldProceed = window.confirm(
+        '⚠️ Facial authentication recommended\n\n' +
+        'For proof-of-human verification, we recommend completing facial authentication. ' +
+        'This adds an extra layer of authenticity to your artwork.\n\n' +
+        'Click OK to authenticate now, or Cancel to skip (not recommended).'
+      );
+      
+      if (shouldProceed) {
+        setShowFacialCapture(true);
+        return;
+      }
+      // If user cancels, they can proceed without biometric (for testing)
     }
 
     setGenerating(true);
@@ -236,6 +256,75 @@ function CreateContent() {
           <h1 className="text-3xl font-bold text-white mb-2">Create AI Content</h1>
           <p className="text-slate-400">Generate verified AI content with blockchain provenance</p>
         </div>
+
+        {/* Facial Authentication Section */}
+        {!biometricData && !showFacialCapture && (
+          <div className="mb-8 p-6 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">🔐</div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-blue-300 mb-2">
+                  Proof-of-Human Authentication Required
+                </h3>
+                <p className="text-sm text-blue-200/70 mb-4">
+                  Verify your identity as a human creator using facial capture before generating content. 
+                  Your biometric data is hashed and never stored in its original form.
+                </p>
+                <button
+                  onClick={() => setShowFacialCapture(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200"
+                >
+                  Start Verification
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!biometricData && showFacialCapture && (
+          <div className="mb-8">
+            <FacialCapture
+              onCapture={(data) => {
+                setBiometricData(data);
+                setShowFacialCapture(false);
+                toast.success('✅ Identity verified! You can now generate content.');
+              }}
+              onSkip={() => {
+                setShowFacialCapture(false);
+              }}
+              autoStart={true}
+            />
+          </div>
+        )}
+
+        {/* Verification Status */}
+        {biometricData && (
+          <div className="mb-6 p-4 bg-green-900/20 border border-green-600/30 rounded-lg">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">✅</div>
+                <div>
+                  <h4 className="text-green-400 font-semibold mb-1">Proof-of-Human Verified</h4>
+                  <p className="text-sm text-green-200/70">
+                    Your identity has been authenticated. All artworks created will include your proof-of-human signature.
+                  </p>
+                  <div className="mt-2 text-xs text-green-300/60">
+                    Verified at: {new Date(biometricData.timestamp).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setBiometricData(null);
+                  setShowFacialCapture(true);
+                }}
+                className="text-xs text-green-300 hover:text-green-200 underline"
+              >
+                Reverify
+              </button>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleGenerate} className="space-y-6">
           {/* Content Type Selection */}
@@ -377,7 +466,7 @@ function CreateContent() {
             
             <div className="mb-4">
               {result.contentType === 'image' || !result.contentType ? (
-                <img
+              <img
                   src={result.contentUrl || result.imageUrl}
                   alt="Generated content"
                   className="w-full rounded-lg border border-slate-800"
@@ -392,8 +481,8 @@ function CreateContent() {
                 <audio
                   src={result.contentUrl || result.audioUrl}
                   controls
-                  className="w-full rounded-lg border border-slate-800"
-                />
+                className="w-full rounded-lg border border-slate-800"
+              />
               ) : result.contentType === 'text' ? (
                 <div className="p-4 bg-slate-800 rounded-lg border border-slate-800">
                   <pre className="text-white whitespace-pre-wrap font-mono text-sm">{result.content || result.text}</pre>

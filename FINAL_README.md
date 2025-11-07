@@ -613,8 +613,3 @@ For issues and questions:
 - [ ] Generate your first AI artwork with blockchain proof!
 
 ---
-
-**Built with ❤️ for the creator economy**
-
-*Empowering artists with blockchain-verified AI art ownership*
-

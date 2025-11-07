@@ -327,6 +327,13 @@ export interface ProofPackage {
     address: string;
     biometricHash?: string;
     sessionProof?: string;
+    biometricProof?: {
+      facialHash: string;
+      signature: string;
+      timestamp: string;
+      verified: boolean;
+      entropy?: number;
+    };
   };
   creative: {
     promptHash: string;

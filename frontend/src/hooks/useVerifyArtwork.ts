@@ -39,10 +39,21 @@ export function useVerifyArtwork(contentHash?: string) {
   const formatHash = (hash: string): `0x${string}` | undefined => {
     if (!hash) return undefined;
     const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+    
     if (cleanHash.length !== 64) {
       console.warn(`⚠️ Invalid hash length: ${cleanHash.length}, expected 64. Hash: ${hash}`);
+      
+      // If it's 65 chars and starts with '0', remove the leading zero
+      if (cleanHash.length === 65 && cleanHash.startsWith('0')) {
+        console.log(`🔧 Fixing hash by removing leading zero for verification`);
+        const fixed = `0x${cleanHash.slice(1)}` as `0x${string}`;
+        console.log('🔍 Fixed hash for verification:', fixed);
+        return fixed;
+      }
+      
       return undefined;
     }
+    
     const formatted = `0x${cleanHash}` as `0x${string}`;
     console.log('🔍 Formatted hash for verification:', formatted);
     return formatted;

@@ -59,9 +59,20 @@ export function useRegisterArtwork() {
       // Ensure proper bytes32 length (64 hex chars + 0x = 66 chars)
       const formatBytes32 = (hash: string): `0x${string}` => {
         const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+        
+        // Check for valid length
         if (cleanHash.length !== 64) {
+          console.warn(`⚠️ Invalid hash length: ${cleanHash.length}, expected 64. Hash: ${hash}`);
+          
+          // If it's 65 chars and starts with '0', remove the leading zero
+          if (cleanHash.length === 65 && cleanHash.startsWith('0')) {
+            console.log(`🔧 Fixing hash by removing leading zero`);
+            return `0x${cleanHash.slice(1)}` as `0x${string}`;
+          }
+          
           throw new Error(`Invalid hash length: ${cleanHash.length}. Expected 64 characters. Got: ${hash}`);
         }
+        
         return `0x${cleanHash}` as `0x${string}`;
       };
 

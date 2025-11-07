@@ -33,6 +33,22 @@ export class ArtworkService {
         throw error;
       }
       
+      // Normalize hashes before saving
+      const normalizeHash = (hash: string): string => {
+        if (!hash) return hash;
+        const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+        // Ensure it's exactly 64 characters
+        if (cleanHash.length !== 64) {
+          console.warn(`⚠️ Attempting to save hash with invalid length: ${cleanHash.length} chars. Hash: ${hash}`);
+        }
+        return `0x${cleanHash}`;
+      };
+
+      const normalizedContentHash = normalizeHash(artwork.contentHash);
+      const normalizedPromptHash = normalizeHash(artwork.promptHash);
+
+      console.log(`💾 Saving artwork with contentHash: ${normalizedContentHash} (length: ${normalizedContentHash.length})`);
+      
       const result = await pool.query(
         `INSERT INTO artworks (
           content_hash, 
@@ -51,8 +67,8 @@ export class ArtworkService {
           updated_at = CURRENT_TIMESTAMP
         RETURNING *`,
         [
-          artwork.contentHash,
-          artwork.promptHash,
+          normalizedContentHash,
+          normalizedPromptHash,
           artwork.creatorAddress.toLowerCase(),
           artwork.ipfsCID,
           artwork.modelUsed,
@@ -214,10 +230,27 @@ export class ArtworkService {
    * Map database row to ArtworkRecord
    */
   private mapRowToArtwork(row: any): ArtworkRecord {
+    // Normalize hashes to ensure they're exactly 66 characters (0x + 64 hex)
+    const normalizeHash = (hash: string): string => {
+      if (!hash) return hash;
+      // Remove 0x prefix if present
+      const cleanHash = hash.startsWith('0x') ? hash.slice(2) : hash;
+      // Ensure it's exactly 64 characters
+      if (cleanHash.length !== 64) {
+        console.warn(`⚠️ Hash length mismatch in database: ${cleanHash.length} chars, expected 64. Hash: ${hash}`);
+        // If it's 65 chars and starts with '0', remove the leading zero
+        if (cleanHash.length === 65 && cleanHash.startsWith('0')) {
+          console.log(`🔧 Fixing hash by removing leading zero: ${cleanHash} -> ${cleanHash.slice(1)}`);
+          return `0x${cleanHash.slice(1)}`;
+        }
+      }
+      return `0x${cleanHash}`;
+    };
+
     return {
       id: row.id,
-      contentHash: row.content_hash,
-      promptHash: row.prompt_hash,
+      contentHash: normalizeHash(row.content_hash),
+      promptHash: normalizeHash(row.prompt_hash),
       creatorAddress: row.creator_address,
       ipfsCID: row.ipfs_cid,
       modelUsed: row.model_used,
