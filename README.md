@@ -221,20 +221,7 @@ MIT License - see LICENSE file for details
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please read CONTRIBUTING.md for details.
+Contributions are welcome!
 
-## 📧 Contact
 
-- Website: https://proof-of-art.io
-- Email: contact@proof-of-art.io
-- Discord: [Join our community]
-- Twitter: [@ProofOfArt]
-
-## 🙏 Acknowledgments
-
-Built with ❤️ for the creative community to solve the critical challenge of AI art authenticity.
-
----
-
-**"Own your creativity. Prove your originality."**
 
