@@ -245,23 +245,23 @@ Learn more at [/poa](/poa) or check out our [OwnChain documentation](/poa).
 | **Gallery Owner** | Digital exhibition | Ensures all works are verified |
 | **Journalist** | Investigating fake art | Quickly verifies authenticity |
 
-## 🛣️ Roadmap
+## 🛣️ Roadmap we willing to follow
 
-### Phase 1: MVP (Weeks 1-2) ✅
+### Phase 1: MVP
 - [x] Smart contract development
 - [x] Basic UI with wallet connection
 - [x] IPFS integration
 - [x] AI API integration
 - [x] Certificate generation
 
-### Phase 2: Advanced Features (Weeks 3-4)
+### Phase 2: Advanced Features
 - [ ] Zero-knowledge proofs
 - [ ] Plagiarism detection
 - [ ] Creative lineage tracking
 - [ ] Public verification portal
 - [ ] Biometric verification
 
-### Phase 3: Production (Week 5+)
+### Phase 3: Production
 - [ ] Security audit
 - [ ] Performance optimization
 - [ ] Marketplace launch
