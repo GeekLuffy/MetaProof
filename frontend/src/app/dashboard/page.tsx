@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useArtworks } from '@/hooks/useArtworks';
 import { useAccount } from 'wagmi';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { CertificateCard } from '@/components/CertificateCard';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
 
@@ -18,7 +19,7 @@ export default function DashboardPage() {
 
 function DashboardContent() {
   const { address } = useAccount();
-  const { contentHashes, certificateAddress, loading, contractAddress, hasContract, refetch } = useArtworks();
+  const { contentHashes, certificateAddress, loading, contractAddress, hasContract, refetch, artworks } = useArtworks();
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, label: string) => {
@@ -284,6 +285,40 @@ function DashboardContent() {
             </div>
           )}
         </div>
+
+        {/* Certificates Section */}
+        {hasContract && (
+          <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 mt-8">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-white">My Certificates</h2>
+              <span className="text-sm text-slate-400">
+                {artworks.length} Certificate(s)
+              </span>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="w-8 h-8 border-2 border-slate-600 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-slate-400">Loading certificates...</p>
+              </div>
+            ) : !artworks || artworks.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-slate-400 mb-2">No certificates yet</p>
+                <p className="text-sm text-slate-500">Create and register your first artwork to get a certificate!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {artworks.map((artwork: any, index: number) => (
+                  <CertificateCard 
+                    key={artwork.contentHash}
+                    artwork={artwork}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

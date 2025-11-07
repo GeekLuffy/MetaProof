@@ -38,6 +38,7 @@ export async function initializeDatabase(): Promise<void> {
         id SERIAL PRIMARY KEY,
         content_hash VARCHAR(66) UNIQUE NOT NULL,
         prompt_hash VARCHAR(66) NOT NULL,
+        prompt TEXT,
         creator_address VARCHAR(42) NOT NULL,
         ipfs_cid VARCHAR(255) NOT NULL,
         model_used VARCHAR(100) NOT NULL,

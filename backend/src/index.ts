@@ -54,6 +54,7 @@ import uploadRoutes from './routes/upload';
 import generateRoutes from './routes/generate';
 import artworksRoutes from './routes/artworks';
 import biometricRoutes from './routes/biometric';
+import certificateRoutes from './routes/certificate';
 import { initializeDatabase } from './services/database';
 import { artworkService } from './services/artworkService';
 
@@ -70,6 +71,7 @@ app.get('/api', (req: Request, res: Response) => {
       upload: '/api/upload',
       artworks: '/api/artworks',
       biometric: '/api/biometric',
+      certificate: '/api/certificate',
     },
   });
 });
@@ -88,6 +90,9 @@ app.use('/api/artworks', artworksRoutes);
 
 // Biometric routes (proof-of-human)
 app.use('/api/biometric', biometricRoutes);
+
+// Certificate routes (PDF generation)
+app.use('/api/certificate', certificateRoutes);
 
 // Verify artwork endpoint
 app.post('/api/verify', async (req: Request, res: Response) => {

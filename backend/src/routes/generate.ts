@@ -72,17 +72,36 @@ router.post(
         const textContent = generationResult.text || generationResult.content || '';
         contentBuffer = Buffer.from(textContent, 'utf-8');
         contentUrl = undefined;
+      } else if (contentType === 'music' && (generationResult as any).audioBuffer) {
+        // For audio with base64 buffer (Bytez audio)
+        contentUrl = generationResult.audioUrl; // data URL for playback
+        contentBuffer = Buffer.from((generationResult as any).audioBuffer, 'base64');
+        console.log(`✅ Audio buffer extracted (${contentBuffer.length} bytes)`);
       } else {
-        // For image/video/audio, download from URL
+        // For image/video/audio with URLs, download from URL
         contentUrl = generationResult.contentUrl || generationResult.imageUrl || generationResult.videoUrl || generationResult.audioUrl;
         if (!contentUrl) {
           throw new Error('No content URL returned from generation');
         }
+        
+        // Skip fetch for data URLs (already have the data)
+        if (contentUrl.startsWith('data:')) {
+          // Extract base64 data from data URL
+          const matches = contentUrl.match(/^data:[^;]+;base64,(.+)$/);
+          if (matches && matches[1]) {
+            contentBuffer = Buffer.from(matches[1], 'base64');
+            console.log(`✅ Content extracted from data URL (${contentBuffer.length} bytes)`);
+          } else {
+            throw new Error('Invalid data URL format');
+          }
+        } else {
+          // Fetch from external URL
         const contentResponse = await fetch(contentUrl);
         if (!contentResponse.ok) {
           throw new Error(`Failed to download generated ${contentType}`);
         }
         contentBuffer = Buffer.from(await contentResponse.arrayBuffer());
+        }
       }
       console.log(`✅ [Step 2/3] Content processed in ${Date.now() - step2Start}ms. Size: ${(contentBuffer.length / 1024).toFixed(2)} KB`);
 
@@ -123,6 +142,7 @@ router.post(
         response.videoUrl = contentUrl;
       } else if (contentType === 'music') {
         response.audioUrl = contentUrl;
+        response.audioBuffer = contentBuffer.toString('base64');
       } else if (contentType === 'text' || contentType === 'code') {
         response.text = generationResult.text || generationResult.content;
         response.content = generationResult.text || generationResult.content;
@@ -237,15 +257,20 @@ router.post(
       // Step 4: Save to database
       console.log(`💾 [Step 4/4] Saving artwork to database...`);
       try {
+        // Get prompt from request body (it was passed in)
+        const { prompt: originalPrompt } = req.body;
+        const promptString = typeof originalPrompt === 'string' ? originalPrompt : JSON.stringify(originalPrompt);
+        
         await artworkService.saveArtwork({
           contentHash,
           promptHash,
+          prompt: promptString,
           creatorAddress: creatorAddress,
           ipfsCID: ipfsResult.cid,
           modelUsed: model || 'unknown',
           metadataURI: metadataResult.cid ? `ipfs://${metadataResult.cid}` : undefined,
         });
-        console.log(`✅ [Step 4/4] Artwork saved to database`);
+        console.log(`✅ [Step 4/4] Artwork saved to database with prompt`);
       } catch (dbError: any) {
         console.error('⚠️ Failed to save artwork to database:', dbError.message);
       }
@@ -371,14 +396,14 @@ router.get('/models', async (req: Request, res: Response) => {
     } else if (contentType === 'music') {
       // Add Bytez audio models
       models.push({
-        id: 'bytez:facebook/musicgen-stereo-melody-large',
-        name: 'MusicGen Stereo Melody Large (Bytez)',
+        id: 'bytez:facebook/musicgen-melody-large',
+        name: 'MusicGen Melody Large (Bytez)',
         provider: 'Bytez',
-        available: aiService.isConfigured('bytez:facebook/musicgen-stereo-melody-large'),
-        description: 'Generate music from text prompts',
-        features: ['Text-to-music', 'Stereo audio', 'Melody generation'],
+        available: aiService.isConfigured('bytez:facebook/musicgen-melody-large'),
+        description: 'Generate moody jazz music with saxophones and other styles from text prompts',
+        features: ['Text-to-music', 'Melody generation', 'Jazz & orchestral'],
         contentType: 'music',
-        bytezModelId: 'facebook/musicgen-stereo-melody-large',
+        bytezModelId: 'facebook/musicgen-melody-large',
       });
     } else if (contentType === 'text' || contentType === 'code') {
       // Add Bytez text models

@@ -13,6 +13,7 @@ export class AIService {
   private openai: OpenAI | null = null;
   private stabilityApiKey: string;
   private bytezSdk: Bytez | null = null;
+  private bytezApiKey: string;
 
   constructor() {
     if (OPENAI_API_KEY) {
@@ -21,6 +22,7 @@ export class AIService {
       });
     }
     this.stabilityApiKey = STABILITY_API_KEY;
+    this.bytezApiKey = BYTEZ_API_KEY;
     
     if (BYTEZ_API_KEY) {
       try {
@@ -189,9 +191,9 @@ export class AIService {
    */
   async generateBytezAudio(
     prompt: string,
-    modelId: string = 'facebook/musicgen-stereo-melody-large',
+    modelId: string = 'facebook/musicgen-melody-large',
     options?: any
-  ): Promise<{ audioUrl: string; metadata?: any }> {
+  ): Promise<{ audioUrl: string; audioBuffer?: string; metadata?: any }> {
     if (!this.bytezSdk) {
       throw new Error('Bytez API key not configured');
     }
@@ -199,6 +201,7 @@ export class AIService {
     try {
       console.log(`🎵 Generating audio with Bytez model: ${modelId}`);
       console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
+      console.log(`🔑 Bytez API key: ${this.bytezApiKey?.substring(0, 8)}...`);
       
       const model = this.bytezSdk.model(modelId);
       
@@ -207,6 +210,8 @@ export class AIService {
         setTimeout(() => reject(new Error('Bytez API timeout after 300 seconds')), 300000)
       );
       
+      console.log(`⏳ Calling Bytez API for model: ${modelId}...`);
+      
       // Run the model with timeout - model.run() returns { error, output }
       const generationPromise = model.run(prompt);
       const result = await Promise.race([generationPromise, timeoutPromise]) as any;
@@ -214,12 +219,30 @@ export class AIService {
       console.log('🔍 Bytez audio generation result:', { 
         hasError: !!result.error, 
         hasOutput: !!result.output,
-        outputType: typeof result.output 
+        outputType: typeof result.output,
+        errorDetails: result.error ? JSON.stringify(result.error) : 'none'
       });
 
       if (result.error) {
-        console.error('❌ Bytez API error:', result.error);
-        throw new Error(`Bytez audio generation error: ${result.error}`);
+        console.error('❌ Bytez API error (full):', JSON.stringify(result.error, null, 2));
+        
+        // Check for specific error types
+        const errorMsg = typeof result.error === 'string' ? result.error : 
+                        result.error?.message || 
+                        JSON.stringify(result.error);
+        
+        // Provide helpful error messages
+        if (errorMsg.includes('fetch failed') || errorMsg.includes('ENOTFOUND')) {
+          throw new Error('Network error: Cannot reach Bytez API. Please check your internet connection.');
+        } else if (errorMsg.includes('401') || errorMsg.includes('unauthorized')) {
+          throw new Error('Invalid Bytez API key. Please check your BYTEZ_API_KEY in .env file.');
+        } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+          throw new Error(`Model "${modelId}" not found. Please verify the model ID is correct.`);
+        } else if (errorMsg.includes('429') || errorMsg.includes('rate limit')) {
+          throw new Error('Bytez API rate limit exceeded. Please try again later.');
+        }
+        
+        throw new Error(`Bytez audio generation error: ${errorMsg}`);
       }
 
       if (!result.output) {
@@ -227,17 +250,27 @@ export class AIService {
         throw new Error('No output returned from Bytez');
       }
 
-      console.log(`✅ Bytez audio generation successful. Audio URL: ${result.output}`);
+      console.log(`✅ Bytez audio generation successful. Output type: ${typeof result.output}`);
+      
+      // Bytez returns base64-encoded audio data, not a URL
+      // Convert to data URL for frontend playback
+      const audioBase64 = result.output;
+      const audioDataUrl = `data:audio/wav;base64,${audioBase64}`;
+      
+      console.log(`✅ Audio data URL created (${audioBase64.length} base64 chars)`);
       
       return {
-        audioUrl: result.output,
+        audioUrl: audioDataUrl,
+        audioBuffer: audioBase64, // Also return raw base64 for saving
         metadata: {
           modelId,
           provider: 'bytez',
+          format: 'wav',
+          size: audioBase64.length,
         },
       };
     } catch (error: any) {
-      console.error('❌ Bytez audio generation error:', error);
+      console.error('❌ Bytez audio generation error (full stack):', error);
       if (error.message?.includes('timeout')) {
         throw new Error('Audio generation timed out. Please try again with a shorter prompt or different model.');
       }

@@ -49,9 +49,9 @@ export function useArtworks() {
     args: address ? [address as `0x${string}`] : undefined,
     query: {
       enabled: !!address && !!contractAddress,
-      refetchInterval: 30000, // Refetch every 30 seconds (less frequent)
+      refetchInterval: false, // Disabled auto-refresh
       refetchOnMount: true,
-      refetchOnWindowFocus: false, // Don't refetch on window focus to reduce calls
+      refetchOnWindowFocus: false, // Don't refetch on window focus
       retry: false, // Don't retry failed calls - it's expected if contract isn't deployed or no artworks
     },
   });
@@ -102,12 +102,7 @@ export function useArtworks() {
     
     fetchArtworksFromDb();
     
-    // Set up periodic refresh (less frequent to reduce server load)
-    const interval = setInterval(() => {
-      fetchArtworksFromDb();
-    }, 15000); // Refresh every 15 seconds (reduced from 5 seconds)
-
-    return () => clearInterval(interval);
+    // No auto-refresh - user can manually refresh with the button
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 

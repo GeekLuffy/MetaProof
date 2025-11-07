@@ -4,6 +4,7 @@ export interface ArtworkRecord {
   id?: number;
   contentHash: string;
   promptHash: string;
+  prompt?: string;
   creatorAddress: string;
   ipfsCID: string;
   modelUsed: string;
@@ -53,15 +54,17 @@ export class ArtworkService {
         `INSERT INTO artworks (
           content_hash, 
           prompt_hash, 
+          prompt,
           creator_address, 
           ipfs_cid, 
           model_used, 
           metadata_uri,
           certificate_token_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (content_hash) 
         DO UPDATE SET
           prompt_hash = EXCLUDED.prompt_hash,
+          prompt = EXCLUDED.prompt,
           metadata_uri = EXCLUDED.metadata_uri,
           certificate_token_id = COALESCE(EXCLUDED.certificate_token_id, artworks.certificate_token_id),
           updated_at = CURRENT_TIMESTAMP
@@ -69,6 +72,7 @@ export class ArtworkService {
         [
           normalizedContentHash,
           normalizedPromptHash,
+          artwork.prompt || null,
           artwork.creatorAddress.toLowerCase(),
           artwork.ipfsCID,
           artwork.modelUsed,
@@ -251,6 +255,7 @@ export class ArtworkService {
       id: row.id,
       contentHash: normalizeHash(row.content_hash),
       promptHash: normalizeHash(row.prompt_hash),
+      prompt: row.prompt,
       creatorAddress: row.creator_address,
       ipfsCID: row.ipfs_cid,
       modelUsed: row.model_used,
