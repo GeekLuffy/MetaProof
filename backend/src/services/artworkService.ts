@@ -10,6 +10,12 @@ export interface ArtworkRecord {
   modelUsed: string;
   metadataURI?: string;
   certificateTokenId?: bigint | number;
+  // Visual matching fields for detecting screenshots/modifications
+  perceptualHash?: string;
+  dhash?: string;
+  ahash?: string;
+  waveletHash?: string;
+  visualFeatures?: string; // JSON string of VisualFeatures
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -59,14 +65,24 @@ export class ArtworkService {
           ipfs_cid, 
           model_used, 
           metadata_uri,
-          certificate_token_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+          certificate_token_id,
+          perceptual_hash,
+          dhash,
+          ahash,
+          wavelet_hash,
+          visual_features
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         ON CONFLICT (content_hash) 
         DO UPDATE SET
           prompt_hash = EXCLUDED.prompt_hash,
           prompt = EXCLUDED.prompt,
           metadata_uri = EXCLUDED.metadata_uri,
           certificate_token_id = COALESCE(EXCLUDED.certificate_token_id, artworks.certificate_token_id),
+          perceptual_hash = COALESCE(EXCLUDED.perceptual_hash, artworks.perceptual_hash),
+          dhash = COALESCE(EXCLUDED.dhash, artworks.dhash),
+          ahash = COALESCE(EXCLUDED.ahash, artworks.ahash),
+          wavelet_hash = COALESCE(EXCLUDED.wavelet_hash, artworks.wavelet_hash),
+          visual_features = COALESCE(EXCLUDED.visual_features, artworks.visual_features),
           updated_at = CURRENT_TIMESTAMP
         RETURNING *`,
         [
@@ -78,6 +94,11 @@ export class ArtworkService {
           artwork.modelUsed,
           artwork.metadataURI || null,
           artwork.certificateTokenId ? Number(artwork.certificateTokenId) : null,
+          artwork.perceptualHash || null,
+          artwork.dhash || null,
+          artwork.ahash || null,
+          artwork.waveletHash || null,
+          artwork.visualFeatures || null,
         ]
       );
 
@@ -261,11 +282,54 @@ export class ArtworkService {
       modelUsed: row.model_used,
       metadataURI: row.metadata_uri,
       certificateTokenId: row.certificate_token_id,
+      perceptualHash: row.perceptual_hash,
+      dhash: row.dhash,
+      ahash: row.ahash,
+      waveletHash: row.wavelet_hash,
+      visualFeatures: row.visual_features,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
   }
+
+  /**
+   * Find similar artworks using perceptual hashes
+   */
+  async findSimilarArtworks(perceptualHash: string, dhash: string, limit: number = 10): Promise<ArtworkRecord[]> {
+    try {
+      let pool;
+      try {
+        pool = getDatabasePool();
+      } catch (error: any) {
+        if (error.message?.includes('DATABASE_URL is not set')) {
+          return [];
+        }
+        throw error;
+      }
+      
+      // Find artworks with similar hashes
+      // This is a simple approach - for production, consider using specialized similarity search
+      const result = await pool.query(
+        `SELECT * FROM artworks 
+         WHERE perceptual_hash IS NOT NULL 
+         AND dhash IS NOT NULL
+         ORDER BY created_at DESC
+         LIMIT $1`,
+        [limit * 5] // Get more results for filtering
+      );
+
+      return result.rows.map((row) => this.mapRowToArtwork(row));
+    } catch (error: any) {
+      if (error.message?.includes('DATABASE_URL is not set') || error.message?.includes('connection')) {
+        console.warn('⚠️ Database not available, returning empty list');
+        return [];
+      }
+      console.error('❌ Error finding similar artworks:', error);
+      throw error;
+    }
+  }
 }
+
 
 export const artworkService = new ArtworkService();
 

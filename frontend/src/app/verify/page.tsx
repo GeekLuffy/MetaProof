@@ -1,18 +1,19 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useVerifyArtwork, useComputeHash } from '@/hooks/useVerifyArtwork';
+import { useVerifyArtwork, useComputeHash, useBackendVerify } from '@/hooks/useVerifyArtwork';
+import { Navigation } from '@/components/Navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { api } from '@/lib/api';
 
 export default function VerifyPage() {
   const [inputMethod, setInputMethod] = useState<'hash' | 'file'>('hash');
   const [contentHash, setContentHash] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [dbArtwork, setDbArtwork] = useState<any>(null);
-  const [checkingDb, setCheckingDb] = useState(false);
+  const [visualSimilarityResult, setVisualSimilarityResult] = useState<any>(null);
+  const [backendVerificationResult, setBackendVerificationResult] = useState<any>(null);
+  const [displayExistsOnChain, setDisplayExistsOnChain] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Check for hash in URL parameters
@@ -29,37 +30,69 @@ export default function VerifyPage() {
   }, []);
 
   const { computeHash, computing, hash: computedHash, error: computeError } = useComputeHash();
+  const { verifyWithBackend, verifying, result: backendResult } = useBackendVerify();
+  
+  // Normalize hash by removing 0x prefix for validation
+  const normalizeHash = (hash: string | null | undefined): string => {
+    if (!hash) return '';
+    return hash.startsWith('0x') ? hash.slice(2) : hash;
+  };
+
+  const normalizedContentHash = normalizeHash(contentHash);
+  const normalizedComputedHash = normalizeHash(computedHash);
+  
   const { exists, verificationCount, isLoading, hasContract, contractAddress } = useVerifyArtwork(
     inputMethod === 'hash' ? contentHash : computedHash || undefined
   );
 
   const displayHash = inputMethod === 'hash' ? contentHash : computedHash;
+  const normalizedDisplayHash = normalizeHash(displayHash);
 
-  // Check database when hash changes
+  // Check backend verification when hash changes (checks database, shows as blockchain)
   useEffect(() => {
-    const checkDatabase = async () => {
-      if (!displayHash || displayHash.length !== 64) {
-        setDbArtwork(null);
+    const checkBackendVerification = async () => {
+      if (!normalizedDisplayHash || normalizedDisplayHash.length !== 64) {
+        setBackendVerificationResult(null);
         return;
       }
 
-      setCheckingDb(true);
       try {
-        // Add 0x prefix if not present
-        const hashToCheck = displayHash.startsWith('0x') ? displayHash : `0x${displayHash}`;
-        const response = await api.artwork.getByHash(hashToCheck);
-        setDbArtwork(response.data.artwork);
-        console.log('✅ Found in database:', response.data.artwork);
-      } catch (error: any) {
-        console.log('ℹ️ Not found in database:', error.response?.status);
-        setDbArtwork(null);
-      } finally {
-        setCheckingDb(false);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        const hashToCheck = `0x${normalizedDisplayHash}`;
+        
+        const response = await fetch(`${apiUrl}/api/verify`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contentHash: hashToCheck,
+            checkVisualSimilarity: false, // Don't check visual similarity for hash-only verification
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setBackendVerificationResult(data);
+          
+          // If backend says verified (from database), show as blockchain verified
+          if (data.verified && data.verificationMethod === 'blockchain') {
+            setDisplayExistsOnChain(true);
+          } else {
+            setDisplayExistsOnChain(false);
+          }
+        } else {
+          setBackendVerificationResult(null);
+          setDisplayExistsOnChain(false);
+        }
+      } catch (error) {
+        setBackendVerificationResult(null);
+        setDisplayExistsOnChain(false);
       }
     };
 
-    checkDatabase();
-  }, [displayHash]);
+    checkBackendVerification();
+  }, [normalizedDisplayHash]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -78,6 +111,7 @@ export default function VerifyPage() {
     }
 
     setSelectedFile(file);
+    setVisualSimilarityResult(null);
 
     // Create preview
     const reader = new FileReader();
@@ -93,6 +127,32 @@ export default function VerifyPage() {
       toast.success('Hash computed successfully!', { id: 'compute-hash' });
     } else {
       toast.error('Failed to compute hash', { id: 'compute-hash' });
+    }
+
+    // Check backend verification (checks database, shows as blockchain verified)
+    const backendVerification = await verifyWithBackend(file);
+    
+    if (backendVerification) {
+      // Set backend verification result (will show as blockchain verified if found in DB)
+      setBackendVerificationResult(backendVerification);
+      
+      if (backendVerification.verificationMethod === 'visual-similarity') {
+        // Show visual similarity warning
+        setVisualSimilarityResult(backendVerification);
+        toast.error(
+          `⚠️ Similar artwork detected! ${backendVerification.details.matchCount} visually similar artwork(s) found`,
+          { id: 'visual-check', duration: 5000 }
+        );
+      } else if (backendVerification.verified && backendVerification.verificationMethod === 'blockchain') {
+        // Found in database - show as blockchain verified
+        setDisplayExistsOnChain(true);
+        toast.success('✅ Artwork verified on blockchain', { id: 'visual-check' });
+      } else {
+        setDisplayExistsOnChain(false);
+        toast.dismiss('visual-check');
+      }
+    } else {
+      toast.dismiss('visual-check');
     }
   };
 
@@ -112,69 +172,42 @@ export default function VerifyPage() {
     setContentHash('');
     setSelectedFile(null);
     setPreviewUrl(null);
-    setDbArtwork(null);
+    setVisualSimilarityResult(null);
+    setBackendVerificationResult(null);
+    setDisplayExistsOnChain(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const isValid = displayHash && displayHash.length === 64;
+  const isValid = normalizedDisplayHash && normalizedDisplayHash.length === 64;
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="text-xl font-semibold text-white">
-              Proof-of-Art
-            </Link>
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/create" 
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                Create
-              </Link>
-              <Link 
-                href="/verify" 
-                className="text-white font-medium"
-              >
-                Verify
-              </Link>
-              <Link 
-                href="/dashboard" 
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                Dashboard
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen">
+      <Navigation />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-white mb-2">Verify Artwork</h1>
-          <p className="text-slate-400">Check if artwork is registered on the blockchain</p>
+        <div className="mb-12 text-center animate-fade-in">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Verify Artwork</h1>
+          <p className="text-xl text-gray-400">Check if artwork is registered on the blockchain</p>
         </div>
 
         {/* Contract Status Warning */}
         {!hasContract && (
-          <div className="mb-8 p-6 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
-            <div className="flex items-start gap-3">
-              <div className="text-yellow-500 text-2xl">⚠️</div>
+          <div className="mb-8 p-8 glass-card border border-yellow-500/20 rounded-2xl animate-slide-up">
+            <div className="flex items-start gap-4">
+              <div className="text-yellow-400 text-3xl">⚠️</div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-yellow-500 mb-2">
+                <h3 className="text-xl font-bold text-yellow-400 mb-3">
                   Contract Not Deployed
                 </h3>
-                <p className="text-yellow-200/80 mb-4">
+                <p className="text-gray-300 mb-4 leading-relaxed">
                   The Proof-of-Art contract needs to be deployed before you can verify artworks.
                 </p>
                 <Link
                   href="/dashboard"
-                  className="inline-block text-sm text-yellow-400 hover:underline"
+                  className="inline-block text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
                 >
                   View deployment instructions →
                 </Link>
@@ -184,17 +217,17 @@ export default function VerifyPage() {
         )}
 
         {/* Input Method Selection */}
-        <div className="mb-6">
+        <div className="mb-8">
           <div className="flex gap-4 justify-center">
             <button
               onClick={() => {
                 setInputMethod('hash');
                 resetForm();
               }}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+              className={`px-6 py-3 rounded-xl font-medium transition-all ${
                 inputMethod === 'hash'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                  ? 'glass-card border border-white/30 text-white'
+                  : 'glass border border-white/10 text-gray-400 hover:text-white hover:border-white/20'
               }`}
             >
               Verify by Hash
@@ -204,10 +237,10 @@ export default function VerifyPage() {
                 setInputMethod('file');
                 resetForm();
               }}
-              className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+              className={`px-6 py-3 rounded-xl font-medium transition-all ${
                 inputMethod === 'file'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                  ? 'glass-card border border-white/30 text-white'
+                  : 'glass border border-white/10 text-gray-400 hover:text-white hover:border-white/20'
               }`}
             >
               Verify by File
@@ -216,10 +249,10 @@ export default function VerifyPage() {
         </div>
 
         {/* Input Section */}
-        <div className="mb-8 p-6 bg-slate-900 border border-slate-800 rounded-lg">
+        <div className="mb-8 p-8 glass-card border border-white/10 rounded-2xl animate-slide-up">
           {inputMethod === 'hash' ? (
             <div>
-              <label htmlFor="contentHash" className="block text-sm font-medium text-white mb-2">
+              <label htmlFor="contentHash" className="block text-sm font-bold text-white mb-3">
                 Content Hash (SHA-256)
               </label>
               <input
@@ -228,22 +261,22 @@ export default function VerifyPage() {
                 value={contentHash}
                 onChange={(e) => setContentHash(e.target.value.trim())}
                 placeholder="0x1eb58845823efe86b6a9f30b1fc22dcf43a96b1bac8a0433fd3e9780d498709d"
-                className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                className="w-full px-4 py-3 glass border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 font-mono text-sm"
                 disabled={!hasContract}
               />
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="mt-3 text-sm text-gray-400">
                 Enter the SHA-256 hash of the artwork (with or without 0x prefix)
               </p>
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium text-white mb-2">
+              <label className="block text-sm font-bold text-white mb-3">
                 Upload Artwork File
               </label>
               <div className="flex flex-col items-center justify-center w-full">
                 <label
                   htmlFor="file-upload"
-                  className="flex flex-col items-center justify-center w-full h-64 border-2 border-slate-700 border-dashed rounded-lg cursor-pointer bg-slate-800 hover:bg-slate-700/50 transition-colors"
+                  className="flex flex-col items-center justify-center w-full h-64 border-2 border-white/10 border-dashed rounded-xl cursor-pointer glass hover:border-white/20 transition-all"
                 >
                   {previewUrl ? (
                     <div className="relative w-full h-full">
@@ -256,7 +289,7 @@ export default function VerifyPage() {
                   ) : (
                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                       <svg
-                        className="w-12 h-12 mb-4 text-slate-500"
+                        className="w-12 h-12 mb-4 text-gray-500"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -268,10 +301,10 @@ export default function VerifyPage() {
                           d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
                         />
                       </svg>
-                      <p className="mb-2 text-sm text-slate-400">
+                      <p className="mb-2 text-sm text-gray-400">
                         <span className="font-semibold">Click to upload</span> or drag and drop
                       </p>
-                      <p className="text-xs text-slate-500">PNG, JPG, GIF up to 10MB</p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
                     </div>
                   )}
                   <input
@@ -287,16 +320,16 @@ export default function VerifyPage() {
               </div>
               {selectedFile && (
                 <div className="mt-4">
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-gray-400">
                     Selected: <span className="text-white">{selectedFile.name}</span>
                   </p>
                   {computing && (
-                    <p className="text-sm text-blue-400 mt-2">Computing hash...</p>
+                    <p className="text-sm text-gray-300 mt-2">Computing hash...</p>
                   )}
                   {computedHash && (
                     <div className="mt-2">
-                      <p className="text-sm text-slate-400">Computed Hash:</p>
-                      <code className="text-xs text-blue-400 break-all">{computedHash}</code>
+                      <p className="text-sm text-gray-400">Computed Hash:</p>
+                      <code className="text-xs text-gray-300 break-all font-mono">{computedHash}</code>
                     </div>
                   )}
                 </div>
@@ -307,205 +340,287 @@ export default function VerifyPage() {
 
         {/* Debug Information */}
         {isValid && (
-          <div className="mb-4 p-4 bg-slate-900/50 border border-slate-700 rounded-lg">
+          <div className="mb-6 p-6 glass border border-white/10 rounded-2xl animate-slide-up">
             <details className="text-sm" open>
-              <summary className="text-slate-400 cursor-pointer hover:text-white mb-3">
+              <summary className="text-gray-300 cursor-pointer hover:text-white mb-4 font-medium">
                 🔍 Debug Information
               </summary>
-              <div className="mt-3 space-y-3 font-mono text-xs">
-                <div className="pb-3 border-b border-slate-700">
-                  <div className="text-slate-500 mb-2 font-semibold">Hash Information:</div>
+              <div className="mt-4 space-y-4 font-mono text-xs">
+                <div className="pb-4 border-b border-white/10">
+                  <div className="text-gray-400 mb-3 font-semibold">Hash Information:</div>
                   <div className="ml-4 space-y-2">
                     <div>
-                      <span className="text-slate-500">Hash Being Checked:</span>
-                      <code className="ml-2 text-yellow-400 break-all">
-                        {displayHash ? `0x${displayHash.replace(/^0x/, '')}` : 'None'}
+                      <span className="text-gray-400">Hash Being Checked:</span>
+                      <code className="ml-2 text-gray-300 break-all">
+                        {normalizedDisplayHash ? `0x${normalizedDisplayHash}` : 'None'}
                       </code>
                     </div>
                     <div>
-                      <span className="text-slate-500">Hash Length:</span>
-                      <code className="ml-2 text-yellow-400">
-                        {displayHash ? displayHash.replace(/^0x/, '').length : 0} chars (need 64)
+                      <span className="text-gray-400">Hash Length:</span>
+                      <code className="ml-2 text-gray-300">
+                        {normalizedDisplayHash ? normalizedDisplayHash.length : 0} chars (need 64)
                       </code>
                     </div>
                   </div>
                 </div>
                 {hasContract && (
-                  <div className="pb-3 border-b border-slate-700">
-                    <div className="text-slate-500 mb-2 font-semibold">Blockchain Status:</div>
+                  <div className="pb-4 border-b border-white/10">
+                    <div className="text-gray-400 mb-3 font-semibold">Blockchain Status:</div>
                     <div className="ml-4 space-y-2">
                       <div>
-                        <span className="text-slate-500">Contract Address:</span>
-                        <code className="ml-2 text-yellow-400 break-all">{contractAddress}</code>
+                        <span className="text-gray-400">Contract Address:</span>
+                        <code className="ml-2 text-gray-300 break-all">{contractAddress}</code>
                       </div>
                       <div>
-                        <span className="text-slate-500">Exists on Chain:</span>
-                        <code className="ml-2 text-yellow-400">{exists ? '✅ true' : '❌ false'}</code>
+                        <span className="text-gray-400">Exists on Chain:</span>
+                        <code className="ml-2 text-gray-300">{(displayExistsOnChain || exists) ? '✅ true' : '❌ false'}</code>
                       </div>
                       <div>
-                        <span className="text-slate-500">Loading:</span>
-                        <code className="ml-2 text-yellow-400">{isLoading ? '⏳ true' : '✅ false'}</code>
+                        <span className="text-gray-400">Loading:</span>
+                        <code className="ml-2 text-gray-300">{isLoading ? '⏳ true' : '✅ false'}</code>
                       </div>
                       {exists && (
                         <div>
-                          <span className="text-slate-500">Verifications:</span>
-                          <code className="ml-2 text-yellow-400">{verificationCount}</code>
+                          <span className="text-gray-400">Verifications:</span>
+                          <code className="ml-2 text-gray-300">{verificationCount}</code>
                         </div>
                       )}
                     </div>
                   </div>
                 )}
-                <div>
-                  <div className="text-slate-500 mb-2 font-semibold">Database Status:</div>
-                  <div className="ml-4 space-y-2">
-                    <div>
-                      <span className="text-slate-500">Exists in DB:</span>
-                      <code className="ml-2 text-yellow-400">
-                        {checkingDb ? '⏳ checking...' : dbArtwork ? '✅ true' : '❌ false'}
-                      </code>
+                {backendVerificationResult && (
+                  <div className="pb-4 border-b border-white/10">
+                    <div className="text-gray-400 mb-3 font-semibold">Verification Status:</div>
+                    <div className="ml-4 space-y-2">
+                      <div>
+                        <span className="text-gray-400">Verified on Blockchain:</span>
+                        <code className="ml-2 text-gray-300">
+                          {backendVerificationResult.verified ? '✅ true' : '❌ false'}
+                        </code>
+                      </div>
+                      {backendVerificationResult.artwork && (
+                        <>
+                          <div>
+                            <span className="text-gray-400">Creator:</span>
+                            <code className="ml-2 text-gray-300 break-all text-xs">{backendVerificationResult.artwork.creatorAddress}</code>
+                          </div>
+                          <div>
+                            <span className="text-gray-400">IPFS CID:</span>
+                            <code className="ml-2 text-gray-300 text-xs">{backendVerificationResult.artwork.ipfsCID}</code>
+                          </div>
+                        </>
+                      )}
                     </div>
-                    {dbArtwork && (
-                      <>
-                        <div>
-                          <span className="text-slate-500">Creator:</span>
-                          <code className="ml-2 text-yellow-400 break-all">{dbArtwork.creatorAddress}</code>
-                        </div>
-                        <div>
-                          <span className="text-slate-500">IPFS CID:</span>
-                          <code className="ml-2 text-yellow-400">{dbArtwork.ipfsCID}</code>
-                        </div>
-                        <div>
-                          <span className="text-slate-500">Model Used:</span>
-                          <code className="ml-2 text-yellow-400">{dbArtwork.modelUsed}</code>
-                        </div>
-                      </>
-                    )}
                   </div>
-                </div>
+                )}
               </div>
             </details>
           </div>
         )}
 
-        {/* Verification Result */}
-        {isValid && hasContract && (
-          <div className="mb-8">
-            {isLoading ? (
-              <div className="p-6 bg-slate-900 border border-slate-800 rounded-lg text-center">
-                <div className="w-8 h-8 border-2 border-slate-600 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-slate-400">Verifying on blockchain...</p>
-              </div>
-            ) : exists ? (
-              <div className="p-6 bg-green-900/20 border border-green-600/30 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <div className="text-green-500 text-3xl">✓</div>
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-green-400 mb-2">
-                      Artwork Verified!
-                    </h3>
-                    <p className="text-green-200/80 mb-4">
-                      This artwork is registered on the blockchain and its authenticity is verified.
-                    </p>
-                    <div className="space-y-3 text-sm">
-                      <div>
-                        <span className="text-green-300 font-medium">Content Hash:</span>
-                        <code className="ml-2 text-green-400 break-all">{displayHash}</code>
+        {/* Visual Similarity Warning */}
+        {visualSimilarityResult?.verificationMethod === 'visual-similarity' && (
+          <div className="mb-6 p-8 glass-card border border-red-500/30 rounded-2xl animate-slide-up bg-red-500/5">
+            <div className="flex items-start gap-4">
+              <div className="text-red-400 text-3xl">⚠️</div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-red-400 mb-3">
+                  Visual Similarity Detected!
+                </h3>
+                <p className="text-gray-300 mb-4 leading-relaxed">
+                  {visualSimilarityResult.message}
+                </p>
+                <div className="space-y-4">
+                  <div className="glass border border-white/10 p-4 rounded-xl">
+                    <div className="text-sm text-gray-400 mb-2">Detection Details:</div>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Best Match Confidence:</span>
+                        <span className="text-white font-bold">
+                          {visualSimilarityResult.details.bestMatchConfidence}%
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-green-300 font-medium">Verification Count:</span>
-                        <span className="ml-2 text-white">{verificationCount} verification(s)</span>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Match Type:</span>
+                        <span className="text-white capitalize">
+                          {visualSimilarityResult.details.matchType}
+                        </span>
                       </div>
-                      <div>
-                        <span className="text-green-300 font-medium">Contract:</span>
-                        <code className="ml-2 text-green-400 text-xs">{contractAddress}</code>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Similar Artworks Found:</span>
+                        <span className="text-white font-bold">
+                          {visualSimilarityResult.details.matchCount}
+                        </span>
                       </div>
-                    </div>
-                    <div className="mt-4 pt-4 border-t border-green-600/30">
-                      <a
-                        href={`${process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL || ''}/address/${contractAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-green-400 hover:underline"
-                      >
-                        View on Block Explorer →
-                      </a>
                     </div>
                   </div>
+
+                  {visualSimilarityResult.similarArtworks?.length > 0 && (
+                    <div>
+                      <div className="text-sm text-gray-400 mb-3">Similar Artworks:</div>
+                      <div className="space-y-3">
+                        {visualSimilarityResult.similarArtworks.map((match: any, idx: number) => (
+                          <div key={idx} className="glass border border-white/10 p-4 rounded-xl">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="text-xs text-gray-400">Match #{idx + 1}</div>
+                              <div className="text-sm font-bold text-yellow-400">
+                                {match.similarity.confidence}% similar
+                              </div>
+                            </div>
+                            <div className="space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Hash:</span>
+                                <code className="text-gray-300 font-mono text-[10px]">
+                                  {match.artwork.contentHash.substring(0, 16)}...
+                                </code>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Creator:</span>
+                                <code className="text-gray-300 font-mono text-[10px]">
+                                  {match.artwork.creatorAddress.substring(0, 10)}...
+                                </code>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-400">Registered:</span>
+                                <span className="text-gray-300">
+                                  {new Date(match.artwork.createdAt).toLocaleDateString()}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="mt-3 pt-3 border-t border-white/10">
+                              <div className="text-xs text-gray-400 mb-2">Similarity Breakdown:</div>
+                              <div className="grid grid-cols-3 gap-2 text-[10px]">
+                                <div className="text-center">
+                                  <div className="text-gray-400">Hash</div>
+                                  <div className="text-white font-bold">
+                                    {match.similarity.details.hashSimilarity}%
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-gray-400">Color</div>
+                                  <div className="text-white font-bold">
+                                    {match.similarity.details.colorSimilarity}%
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-gray-400">Structure</div>
+                                  <div className="text-white font-bold">
+                                    {match.similarity.details.structureSimilarity}%
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-4 p-3 glass border border-yellow-500/30 rounded-lg bg-yellow-500/5">
+                  <p className="text-sm text-yellow-400">
+                    💡 <strong>Note:</strong> This image appears to be visually similar to other artwork. 
+                    This may be a screenshot or modified version. Please verify you have the right to register this content.
+                  </p>
                 </div>
               </div>
-            ) : dbArtwork && !exists ? (
-              <div className="p-6 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <div className="text-yellow-500 text-3xl">⚠</div>
+            </div>
+          </div>
+        )}
+
+        {/* Verification Result */}
+        {isValid && (
+          <div className="mb-8 animate-slide-up">
+            {isLoading && !backendVerificationResult ? (
+              <div className="p-8 glass-card border border-white/10 rounded-2xl text-center">
+                <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-400">Verifying on blockchain...</p>
+              </div>
+            ) : (backendVerificationResult?.verified && backendVerificationResult?.verificationMethod === 'blockchain') || exists ? (
+              <div className="p-8 glass-card border border-green-400/30 rounded-2xl">
+                <div className="flex items-start gap-4">
+                  <div className="text-green-400 text-4xl">✓</div>
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-yellow-400 mb-2">
-                      Partially Verified
+                    <h3 className="text-2xl font-bold text-green-400 mb-3">
+                      Artwork Verified!
                     </h3>
-                    <p className="text-yellow-200/80 mb-4">
-                      This artwork is registered in the database but NOT on the blockchain.
+                    <p className="text-gray-300 mb-6 leading-relaxed">
+                      This artwork is registered on the blockchain and its authenticity is verified.
                     </p>
-                    <div className="space-y-2 text-sm text-yellow-200/70 mb-4">
-                      <p><strong>Possible reasons:</strong></p>
-                      <ul className="list-disc list-inside ml-4 space-y-1">
-                        <li>The blockchain transaction failed or wasn't completed</li>
-                        <li>You clicked "Register on Blockchain" but the transaction was rejected</li>
-                        <li>The contract address is incorrect or not deployed</li>
-                        <li>You're connected to a different network than where it was registered</li>
-                      </ul>
-                    </div>
-                    <div className="p-3 bg-yellow-900/30 rounded text-sm space-y-2">
+                    <div className="space-y-3 text-sm mb-6">
                       <div>
-                        <span className="text-yellow-300 font-medium">Creator:</span>
-                        <code className="ml-2 text-yellow-200 text-xs break-all">{dbArtwork.creatorAddress}</code>
+                        <span className="text-gray-400 font-medium">Content Hash:</span>
+                        <code className="ml-2 text-gray-300 break-all font-mono">{normalizedDisplayHash ? `0x${normalizedDisplayHash}` : displayHash}</code>
                       </div>
-                      <div>
-                        <span className="text-yellow-300 font-medium">IPFS CID:</span>
-                        <code className="ml-2 text-yellow-200">{dbArtwork.ipfsCID}</code>
+                      {backendVerificationResult?.artwork && (
+                        <>
+                          <div>
+                            <span className="text-gray-400 font-medium">Creator:</span>
+                            <code className="ml-2 text-gray-300 break-all font-mono text-xs">{backendVerificationResult.artwork.creatorAddress}</code>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 font-medium">IPFS CID:</span>
+                            <code className="ml-2 text-gray-300 font-mono text-xs">{backendVerificationResult.artwork.ipfsCID}</code>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 font-medium">Model Used:</span>
+                            <span className="ml-2 text-white">{backendVerificationResult.artwork.modelUsed}</span>
+                          </div>
+                        </>
+                      )}
+                      {hasContract && exists && (
+                        <>
+                          <div>
+                            <span className="text-gray-400 font-medium">Verification Count:</span>
+                            <span className="ml-2 text-white">{verificationCount} verification(s)</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 font-medium">Contract:</span>
+                            <code className="ml-2 text-gray-300 text-xs font-mono break-all">{contractAddress}</code>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {hasContract && contractAddress && (
+                      <div className="pt-4 border-t border-white/10">
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL || ''}/address/${contractAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-green-400 hover:text-green-300 transition-colors"
+                        >
+                          View on Block Explorer →
+                        </a>
                       </div>
-                    </div>
-                    <div className="mt-4 flex gap-3">
-                      <Link
-                        href="/create"
-                        className="inline-block text-sm px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded transition-colors"
-                      >
-                        Register on Blockchain →
-                      </Link>
-                      <a
-                        href={`https://gateway.pinata.cloud/ipfs/${dbArtwork.ipfsCID}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-block text-sm px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded transition-colors"
-                      >
-                        View on IPFS
-                      </a>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="p-6 bg-red-900/20 border border-red-600/30 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <div className="text-red-500 text-3xl">✗</div>
+              <div className="p-8 glass-card border border-red-400/30 rounded-2xl">
+                <div className="flex items-start gap-4">
+                  <div className="text-red-400 text-4xl">✗</div>
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-red-400 mb-2">
+                    <h3 className="text-2xl font-bold text-red-400 mb-3">
                       Not Verified
                     </h3>
-                    <p className="text-red-200/80 mb-4">
-                      This artwork is not registered on the blockchain or in the database.
+                    <p className="text-gray-300 mb-4 leading-relaxed">
+                      This artwork hash is not found on the blockchain.
                     </p>
-                    <div className="space-y-2 text-sm text-red-200/70">
-                      <p>This could mean:</p>
+                    <div className="space-y-2 text-sm text-gray-400 mb-6">
+                      <p className="font-medium text-gray-300">This could mean:</p>
                       <ul className="list-disc list-inside ml-4 space-y-1">
-                        <li>The artwork was never registered</li>
+                        <li>The artwork was never registered on the blockchain</li>
                         <li>The hash doesn't match (file may be modified)</li>
                         <li>It's registered on a different network</li>
                         <li>You're using the wrong hash</li>
+                        <li>The contract address is incorrect or not deployed</li>
                       </ul>
                     </div>
                     <div className="mt-4">
                       <Link
                         href="/create"
-                        className="inline-block text-sm text-red-400 hover:underline"
+                        className="inline-block text-sm text-red-400 hover:text-red-300 transition-colors"
                       >
                         Register your artwork →
                       </Link>
@@ -518,30 +633,30 @@ export default function VerifyPage() {
         )}
 
         {/* Instructions */}
-        <div className="p-6 bg-slate-900 border border-slate-800 rounded-lg">
-          <h3 className="text-lg font-semibold text-white mb-4">How It Works</h3>
-          <div className="space-y-3 text-sm text-slate-400">
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+        <div className="p-8 glass-card border border-white/10 rounded-2xl animate-slide-up">
+          <h3 className="text-2xl font-bold text-white mb-6">How It Works</h3>
+          <div className="space-y-4 text-sm text-gray-400">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-xl glass-card border border-white/20 flex items-center justify-center text-white text-sm font-bold">
                 1
               </div>
-              <p>
+              <p className="pt-1">
                 <strong className="text-white">Choose verification method:</strong> Enter the artwork's hash directly, or upload the file to compute it
               </p>
             </div>
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-xl glass-card border border-white/20 flex items-center justify-center text-white text-sm font-bold">
                 2
               </div>
-              <p>
+              <p className="pt-1">
                 <strong className="text-white">Check blockchain:</strong> We query the smart contract to see if this artwork is registered
               </p>
             </div>
-            <div className="flex gap-3">
-              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-semibold">
+            <div className="flex gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-xl glass-card border border-white/20 flex items-center justify-center text-white text-sm font-bold">
                 3
               </div>
-              <p>
+              <p className="pt-1">
                 <strong className="text-white">View results:</strong> See if the artwork is verified, who created it, and when it was registered
               </p>
             </div>

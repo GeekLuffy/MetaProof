@@ -44,6 +44,12 @@ export async function initializeDatabase(): Promise<void> {
         model_used VARCHAR(100) NOT NULL,
         metadata_uri TEXT,
         certificate_token_id BIGINT,
+        -- Visual matching fields for detecting screenshots and modifications
+        perceptual_hash VARCHAR(128),
+        dhash VARCHAR(128),
+        ahash VARCHAR(128),
+        wavelet_hash VARCHAR(128),
+        visual_features JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -57,6 +63,15 @@ export async function initializeDatabase(): Promise<void> {
     // Create index on content_hash for faster lookups
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_content_hash ON artworks(content_hash);
+    `);
+
+    // Create indexes on perceptual hashes for visual similarity search
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_perceptual_hash ON artworks(perceptual_hash);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_dhash ON artworks(dhash);
     `);
 
     console.log('✅ Database tables initialized');

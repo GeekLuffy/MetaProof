@@ -169,7 +169,7 @@ router.post(
   authenticateToken,
   async (req: AuthRequest, res: Response) => {
     try {
-      const { contentBuffer, imageBuffer, contentHash, promptHash, model, contentType = 'image' } = req.body;
+      const { contentBuffer, imageBuffer, contentHash, promptHash, prompt, model, contentType = 'image' } = req.body;
       const creatorAddress = req.user?.address;
 
       if (!creatorAddress) {
@@ -258,8 +258,10 @@ router.post(
       console.log(`💾 [Step 4/4] Saving artwork to database...`);
       try {
         // Get prompt from request body (it was passed in)
-        const { prompt: originalPrompt } = req.body;
-        const promptString = typeof originalPrompt === 'string' ? originalPrompt : JSON.stringify(originalPrompt);
+        const promptToSave = prompt || req.body.prompt;
+        const promptString = promptToSave 
+          ? (typeof promptToSave === 'string' ? promptToSave : JSON.stringify(promptToSave))
+          : undefined;
         
         await artworkService.saveArtwork({
           contentHash,

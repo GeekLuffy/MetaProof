@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import multer from 'multer';
 import { ipfsService } from '../services/ipfsService';
 import { authenticateToken } from '../middleware/auth';
+import { visualMatchingService } from '../services/visualMatchingService';
+import { generateContentHash } from '../utils/crypto';
 
 const router = express.Router();
 
@@ -58,6 +60,19 @@ router.post(
       // Optional metadata from request body
       const metadata = req.body.metadata ? JSON.parse(req.body.metadata) : {};
 
+      // Generate visual fingerprint for images
+      let visualFingerprint = null;
+      if (mimetype.startsWith('image/') && mimetype !== 'image/svg+xml') {
+        try {
+          console.log('🔍 Generating visual fingerprint for image...');
+          visualFingerprint = await visualMatchingService.generateVisualFingerprint(buffer);
+          console.log('✅ Visual fingerprint generated successfully');
+        } catch (error) {
+          console.warn('⚠️ Failed to generate visual fingerprint:', error);
+          // Continue without visual fingerprint
+        }
+      }
+
       // Upload to IPFS with metadata
       const result = await ipfsService.uploadFile(buffer, originalname, {
         name: originalname,
@@ -70,12 +85,23 @@ router.post(
         },
       });
 
+      // Generate content hash
+      const contentHash = generateContentHash(buffer);
+
       res.json({
         success: true,
         ipfsCID: result.cid,
         url: result.url,
         size: result.size,
         filename: originalname,
+        contentHash,
+        visualFingerprint: visualFingerprint ? {
+          perceptualHash: visualFingerprint.hashes.pHash,
+          dhash: visualFingerprint.hashes.dHash,
+          ahash: visualFingerprint.hashes.aHash,
+          waveletHash: visualFingerprint.hashes.waveletHash,
+          visualFeatures: visualMatchingService.serializeFingerprint(visualFingerprint),
+        } : null,
       });
     } catch (error: any) {
       console.error('Upload error:', error);

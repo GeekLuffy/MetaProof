@@ -79,8 +79,8 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
       currentY += lineHeight;
 
       // PROMPT
-      const displayPrompt = data.prompt 
-        ? (data.prompt.length > 40 ? `"${data.prompt.substring(0, 37)}..."` : `"${data.prompt}"`)
+      const displayPrompt = data.prompt && data.prompt.trim()
+        ? (data.prompt.length > 60 ? `"${data.prompt.substring(0, 57)}..."` : `"${data.prompt}"`)
         : '"[Not Available]"';
       
       doc.font('Helvetica-Bold')
@@ -153,7 +153,7 @@ export async function generateCertificatePDF(data: CertificateData): Promise<Buf
       currentY += lineHeight + 25; // Extra space before QR code section
 
       // Generate QR Code for verification
-      const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify/${data.contentHash}`;
+      const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify?hash=${data.contentHash}`;
       const qrCodeBuffer = await QRCode.toBuffer(verifyUrl, {
         width: 120,
         margin: 1,

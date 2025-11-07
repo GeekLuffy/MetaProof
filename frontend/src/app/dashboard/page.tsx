@@ -56,27 +56,28 @@ function DashboardContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
+    <div className="min-h-screen">
+      <nav className="sticky top-0 z-50 glass border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="text-xl font-semibold text-white">
-              Proof-of-Art
+          <div className="flex justify-between items-center h-20">
+            <Link href="/" className="flex items-center gap-3 group">
+              <div className="relative w-10 h-10 rounded-xl glass-card flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 rounded-xl" />
+                <svg className="w-5 h-5 text-white relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+              </div>
+              <span className="text-xl font-bold text-white tracking-tight">Proof-of-Art</span>
             </Link>
-            <div className="flex items-center gap-4">
-              <Link 
-                href="/create" 
-                className="text-slate-400 hover:text-white transition-colors"
-              >
-                Create
-              </Link>
-              <Link 
-                href="/dashboard" 
-                className="text-white font-medium"
-              >
-                Dashboard
-              </Link>
+            <div className="flex items-center gap-8">
+              <div className="hidden md:flex items-center gap-8">
+                <Link href="/create" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">Create</Link>
+                <Link href="/verify" className="text-gray-400 hover:text-white transition-colors text-sm font-medium">Verify</Link>
+                <Link href="/dashboard" className="relative text-white text-sm font-medium">
+                  <span className="absolute -bottom-[21px] left-0 right-0 h-[2px] bg-white" />
+                  Dashboard
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -84,21 +85,21 @@ function DashboardContent() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">My Dashboard</h1>
-          <p className="text-slate-400">View and manage your registered artworks</p>
+        <div className="mb-12 animate-fade-in">
+          <h1 className="text-4xl font-bold text-white mb-3">My Dashboard</h1>
+          <p className="text-gray-400">View and manage your registered artworks</p>
         </div>
 
         {/* Contract Status */}
         {!hasContract && (
-          <div className="mb-8 p-6 bg-yellow-900/20 border border-yellow-600/30 rounded-lg">
-            <div className="flex items-start gap-3">
-              <div className="text-yellow-500 text-2xl">⚠️</div>
+          <div className="mb-8 p-8 glass-card border border-yellow-500/20 rounded-2xl animate-slide-up">
+            <div className="flex items-start gap-4">
+              <div className="text-yellow-400 text-3xl">⚠️</div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-yellow-500 mb-2">
+                <h3 className="text-xl font-bold text-yellow-400 mb-3">
                   Contract Not Deployed
                 </h3>
-                <p className="text-yellow-200/80 mb-4">
+                <p className="text-gray-300 mb-4 leading-relaxed">
                   The Proof-of-Art contract needs to be deployed to your custom blockchain network before you can register artworks on the blockchain.
                 </p>
                 <div className="space-y-2 text-sm text-yellow-200/70">
@@ -125,8 +126,8 @@ function DashboardContent() {
         )}
 
         {/* Account Info */}
-        <div className="mb-8 p-6 bg-slate-900 border border-slate-800 rounded-lg">
-          <h2 className="text-xl font-semibold text-white mb-4">Account Info</h2>
+        <div className="mb-8 p-8 glass-card border border-white/10 rounded-2xl animate-slide-up">
+          <h2 className="text-2xl font-bold text-white mb-6">Account Info</h2>
           <div className="space-y-3">
             <div>
               <span className="text-slate-400 text-sm">Your Address:</span>
@@ -175,14 +176,14 @@ function DashboardContent() {
 
         {/* NFT Import Instructions */}
         {hasContract && certificateAddress && (
-          <div className="mb-8 p-6 bg-blue-900/20 border border-blue-600/30 rounded-lg">
-            <div className="flex items-start gap-3">
-              <div className="text-blue-400 text-2xl">ℹ️</div>
+          <div className="mb-8 p-8 glass-card border border-blue-400/20 rounded-2xl animate-slide-up">
+            <div className="flex items-start gap-4">
+              <div className="text-blue-400 text-3xl">ℹ️</div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-blue-400 mb-2">
+                <h3 className="text-xl font-bold text-blue-400 mb-3">
                   View Your NFT Certificates in MetaMask
                 </h3>
-                <p className="text-blue-200/80 mb-4">
+                <p className="text-gray-300 mb-4 leading-relaxed">
                   Your NFT certificates are stored on the blockchain. To view them in MetaMask:
                 </p>
                 <div className="space-y-3">
@@ -217,14 +218,14 @@ function DashboardContent() {
         )}
 
         {/* Artworks List */}
-        <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-white">My Artworks</h2>
+        <div className="glass-card border border-white/10 rounded-2xl p-8 animate-slide-up">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-white">My Artworks</h2>
             {hasContract && (
               <button
                 onClick={() => refetch()}
                 disabled={loading}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white text-sm rounded-lg transition-colors"
+                className="px-4 py-2 glass-card border border-white/20 hover-lift disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded-xl transition-all font-medium"
               >
                 {loading ? 'Refreshing...' : 'Refresh'}
               </button>
@@ -288,9 +289,9 @@ function DashboardContent() {
 
         {/* Certificates Section */}
         {hasContract && (
-          <div className="bg-slate-900 border border-slate-800 rounded-lg p-6 mt-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-white">My Certificates</h2>
+          <div className="glass-card border border-white/10 rounded-2xl p-8 mt-8 animate-slide-up">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-white">My Certificates</h2>
               <span className="text-sm text-slate-400">
                 {artworks.length} Certificate(s)
               </span>

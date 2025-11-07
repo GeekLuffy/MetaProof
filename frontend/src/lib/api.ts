@@ -80,6 +80,7 @@ export const api = {
       contentBuffer: string;
       contentHash: string;
       promptHash: string;
+      prompt?: string;
       model: string;
       contentType?: string;
     }) => apiClient.post('/api/generate/upload-ipfs', data, {

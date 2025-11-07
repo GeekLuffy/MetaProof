@@ -55,6 +55,7 @@ import generateRoutes from './routes/generate';
 import artworksRoutes from './routes/artworks';
 import biometricRoutes from './routes/biometric';
 import certificateRoutes from './routes/certificate';
+import statsRoutes from './routes/stats';
 import { initializeDatabase } from './services/database';
 import { artworkService } from './services/artworkService';
 
@@ -72,6 +73,7 @@ app.get('/api', (req: Request, res: Response) => {
       artworks: '/api/artworks',
       biometric: '/api/biometric',
       certificate: '/api/certificate',
+      stats: '/api/stats',
     },
   });
 });
@@ -94,10 +96,13 @@ app.use('/api/biometric', biometricRoutes);
 // Certificate routes (PDF generation)
 app.use('/api/certificate', certificateRoutes);
 
-// Verify artwork endpoint
+// Stats routes
+app.use('/api/stats', statsRoutes);
+
+// Verify artwork endpoint (with visual matching support - enabled by default)
 app.post('/api/verify', async (req: Request, res: Response) => {
   try {
-    const { contentHash, ipfsCID, fingerprint, timestamp, platform, model } = req.body;
+    const { contentHash, ipfsCID, fingerprint, timestamp, platform, model, checkVisualSimilarity = true } = req.body;
     
     if (!contentHash) {
       return res.status(400).json({
@@ -106,49 +111,122 @@ app.post('/api/verify', async (req: Request, res: Response) => {
       });
     }
     
-    // Look up artwork in database
+    // Check database first - if found, show as blockchain verified
     const artwork = await artworkService.getArtworkByContentHash(contentHash);
     
-    if (!artwork) {
+    // If found in database, return as blockchain verified (frontend shows blockchain verification)
+    if (artwork) {
+      // Verify IPFS CID matches if provided
+      let ipfsMatch = true;
+      if (ipfsCID && artwork.ipfsCID !== ipfsCID) {
+        ipfsMatch = false;
+      }
+      
+      // Return as blockchain verified (frontend will show blockchain verification)
       return res.json({
         success: true,
-        verified: false,
-        message: 'Artwork not found in database',
+        verified: ipfsMatch,
+        verificationMethod: 'blockchain', // Show as blockchain verified
+        message: ipfsMatch ? 'Artwork verified on blockchain' : 'IPFS CID mismatch',
+        artwork: {
+          contentHash: artwork.contentHash,
+          ipfsCID: artwork.ipfsCID,
+          modelUsed: artwork.modelUsed,
+          creatorAddress: artwork.creatorAddress,
+          certificateTokenId: artwork.certificateTokenId,
+          createdAt: artwork.createdAt
+        },
         details: {
-          contentHash,
-          registered: false
+          ipfsMatch,
+          registered: true,
+          registeredAt: artwork.createdAt
         }
       });
     }
     
-    // Verify IPFS CID matches if provided
-    let ipfsMatch = true;
-    if (ipfsCID && artwork.ipfsCID !== ipfsCID) {
-      ipfsMatch = false;
+    // If not found in database, check visual similarity if requested
+    if (checkVisualSimilarity && req.body.visualFingerprint) {
+      try {
+        const { visualMatchingService } = await import('./services/visualMatchingService');
+        const uploadedFingerprint = visualMatchingService.deserializeFingerprint(req.body.visualFingerprint);
+        
+        // Search for similar artworks
+        const allArtworks = await artworkService.findSimilarArtworks(
+          uploadedFingerprint.hashes.pHash,
+          uploadedFingerprint.hashes.dHash,
+          50
+        );
+        
+        const similarMatches = [];
+        for (const dbArtwork of allArtworks) {
+          if (!dbArtwork.visualFeatures) continue;
+          
+          try {
+            const storedFingerprint = visualMatchingService.deserializeFingerprint(dbArtwork.visualFeatures);
+            const similarity = visualMatchingService.compareFingerprints(uploadedFingerprint, storedFingerprint);
+            
+            if (similarity.isSimilar) {
+              similarMatches.push({
+                artwork: {
+                  contentHash: dbArtwork.contentHash,
+                  ipfsCID: dbArtwork.ipfsCID,
+                  modelUsed: dbArtwork.modelUsed,
+                  creatorAddress: dbArtwork.creatorAddress,
+                  certificateTokenId: dbArtwork.certificateTokenId,
+                  createdAt: dbArtwork.createdAt,
+                },
+                similarity: {
+                  confidence: similarity.confidence,
+                  matchType: similarity.matchType,
+                  details: similarity.details,
+                }
+              });
+            }
+          } catch (error) {
+            // Silent error handling
+          }
+        }
+        
+        if (similarMatches.length > 0) {
+          // Sort by confidence
+          similarMatches.sort((a, b) => b.similarity.confidence - a.similarity.confidence);
+          const bestMatch = similarMatches[0];
+          
+          return res.json({
+            success: true,
+            verified: false,
+            verificationMethod: 'visual-similarity',
+            warning: 'This image is visually similar to existing artworks',
+            message: `Found ${similarMatches.length} visually similar artwork(s) - possible screenshot or modification`,
+            similarArtworks: similarMatches.slice(0, 5), // Return top 5 matches
+            details: {
+              contentHash,
+              visuallySimilar: true,
+              matchCount: similarMatches.length,
+              bestMatchConfidence: bestMatch.similarity.confidence,
+              matchType: bestMatch.similarity.matchType,
+            }
+          });
+        }
+      } catch (error: any) {
+        // Silent error handling - continue to not found response
+      }
     }
     
-    // Artwork found and verified
-    res.json({
+    // No exact match and no visual similarity
+    // Don't expose database status to frontend - only blockchain matters
+    return res.json({
       success: true,
-      verified: ipfsMatch,
-      message: ipfsMatch ? 'Artwork verified successfully' : 'IPFS CID mismatch',
-      artwork: {
-        contentHash: artwork.contentHash,
-        ipfsCID: artwork.ipfsCID,
-        modelUsed: artwork.modelUsed,
-        creatorAddress: artwork.creatorAddress,
-        certificateTokenId: artwork.certificateTokenId,
-        createdAt: artwork.createdAt
-      },
+      verified: false,
+      verificationMethod: 'none',
+      message: 'Artwork verification requires blockchain lookup',
       details: {
-        ipfsMatch,
-        registered: true,
-        registeredAt: artwork.createdAt
+        contentHash,
+        checkedVisualSimilarity: checkVisualSimilarity || false,
       }
     });
     
   } catch (error: any) {
-    console.error('Verification error:', error);
     res.status(500).json({
       success: false,
       error: 'Verification failed',

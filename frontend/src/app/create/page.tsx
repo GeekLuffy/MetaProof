@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
+import { Navigation } from '@/components/Navigation';
 import { FacialCapture, BiometricData } from '@/components/FacialCapture';
 import { api } from '@/lib/api';
 import { useIPFS } from '@/hooks/useIPFS';
@@ -106,9 +107,9 @@ function CreateContent() {
         contentBuffer: result.contentBuffer,
         contentHash: result.contentHash,
         promptHash: result.promptHash,
+        prompt: prompt, // Include prompt when uploading to IPFS
         model: result.model,
         contentType: result.contentType || contentType,
-        biometricData: biometricData || undefined,
       });
 
       if (response.data.success) {
@@ -239,40 +240,31 @@ function CreateContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950">
-      {/* Navigation */}
-      <nav className="sticky top-0 z-50 border-b border-slate-800 bg-slate-900/80 backdrop-blur-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <Link href="/" className="text-xl font-semibold text-white">
-              Proof-of-Art
-            </Link>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen">
+      <Navigation />
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Create AI Content</h1>
-          <p className="text-slate-400">Generate verified AI content with blockchain provenance</p>
+        <div className="mb-12 animate-fade-in">
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Create AI Content</h1>
+          <p className="text-xl text-gray-400">Generate verified AI content with blockchain provenance</p>
         </div>
 
         {/* Facial Authentication Section */}
         {!biometricData && !showFacialCapture && (
-          <div className="mb-8 p-6 bg-blue-900/20 border border-blue-600/30 rounded-lg">
+          <div className="mb-8 p-8 glass-card border border-white/20 rounded-2xl animate-slide-up">
             <div className="flex items-start gap-4">
               <div className="text-4xl">🔐</div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-blue-300 mb-2">
+                <h3 className="text-xl font-bold text-white mb-3">
                   Proof-of-Human Authentication Required
                 </h3>
-                <p className="text-sm text-blue-200/70 mb-4">
+                <p className="text-gray-300 mb-6 leading-relaxed">
                   Verify your identity as a human creator using facial capture before generating content. 
                   Your biometric data is hashed and never stored in its original form.
                 </p>
                 <button
                   onClick={() => setShowFacialCapture(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200"
+                  className="glass-card border border-white/20 hover:border-white/30 text-white font-medium py-2.5 px-6 rounded-xl transition-all hover-lift"
                 >
                   Start Verification
                 </button>
@@ -299,16 +291,16 @@ function CreateContent() {
 
         {/* Verification Status */}
         {biometricData && (
-          <div className="mb-6 p-4 bg-green-900/20 border border-green-600/30 rounded-lg">
+          <div className="mb-8 p-6 glass-card border border-green-400/30 rounded-2xl animate-slide-up">
             <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <div className="text-2xl">✅</div>
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">✅</div>
                 <div>
-                  <h4 className="text-green-400 font-semibold mb-1">Proof-of-Human Verified</h4>
-                  <p className="text-sm text-green-200/70">
+                  <h4 className="text-green-400 font-bold mb-2">Proof-of-Human Verified</h4>
+                  <p className="text-gray-300 mb-2 leading-relaxed">
                     Your identity has been authenticated. All artworks created will include your proof-of-human signature.
                   </p>
-                  <div className="mt-2 text-xs text-green-300/60">
+                  <div className="mt-2 text-xs text-gray-400">
                     Verified at: {new Date(biometricData.timestamp).toLocaleString()}
                   </div>
                 </div>
@@ -318,7 +310,7 @@ function CreateContent() {
                   setBiometricData(null);
                   setShowFacialCapture(true);
                 }}
-                className="text-xs text-green-300 hover:text-green-200 underline"
+                className="text-xs text-gray-400 hover:text-white transition-colors"
               >
                 Reverify
               </button>
@@ -326,20 +318,20 @@ function CreateContent() {
           </div>
         )}
 
-        <form onSubmit={handleGenerate} className="space-y-6">
+        <form onSubmit={handleGenerate} className="space-y-8">
           {/* Content Type Selection */}
-          <div>
-            <label className="block text-sm font-bold text-white mb-3">Content Type</label>
-            <div className="grid grid-cols-5 gap-3">
+          <div className="p-8 glass-card border border-white/10 rounded-2xl animate-slide-up">
+            <label className="block text-sm font-bold text-white mb-4">Content Type</label>
+            <div className="grid grid-cols-5 gap-3 mb-4">
               {(['text', 'image', 'music', 'code', 'video'] as ContentType[]).map((type) => (
                 <button
                   key={type}
                   type="button"
                   onClick={() => setContentType(type)}
-                  className={`flex flex-col items-center justify-center p-4 rounded-lg border-2 transition-all ${
+                  className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
                     contentType === type
-                      ? 'border-blue-500 bg-blue-500/10'
-                      : 'border-slate-800 bg-slate-900 hover:border-slate-700'
+                      ? 'glass-card border-white/30'
+                      : 'glass border-white/10 hover:border-white/20'
                   }`}
                   disabled={generating}
                 >
@@ -354,7 +346,7 @@ function CreateContent() {
                 </button>
               ))}
             </div>
-            <p className="mt-3 text-sm text-slate-400">
+            <p className="text-sm text-gray-400">
               {contentType === 'text' && 'Generate text from an initial message chain for applications like story generation, dialogue systems, and creative writing'}
               {contentType === 'image' && 'Generate images from text prompts'}
               {contentType === 'music' && 'Generate music from text prompts'}
@@ -364,8 +356,8 @@ function CreateContent() {
           </div>
 
           {/* Prompt Input */}
-          <div>
-            <label htmlFor="prompt" className="block text-sm font-bold text-white mb-2">
+          <div className="p-8 glass-card border border-white/10 rounded-2xl animate-slide-up">
+            <label htmlFor="prompt" className="block text-sm font-bold text-white mb-3">
               Prompt
             </label>
             <textarea
@@ -380,21 +372,21 @@ function CreateContent() {
                 'A rotating 3D logo animation...'
               }
               rows={4}
-              className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              className="w-full px-4 py-3 glass border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 resize-none"
               disabled={generating}
             />
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-3 text-sm text-gray-400">
               {prompt.length}/1000 characters
             </p>
           </div>
 
           {/* Model Selection */}
-          <div>
-            <label htmlFor="model" className="block text-sm font-bold text-white mb-2">
+          <div className="p-8 glass-card border border-white/10 rounded-2xl animate-slide-up">
+            <label htmlFor="model" className="block text-sm font-bold text-white mb-3">
               AI Model
             </label>
             {loadingModels ? (
-              <div className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg text-slate-400">
+              <div className="w-full px-4 py-3 glass border border-white/10 rounded-xl text-gray-400">
                 Loading models...
               </div>
             ) : (
@@ -402,7 +394,7 @@ function CreateContent() {
                 id="model"
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                className="w-full px-4 py-3 bg-slate-900 border border-slate-800 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
+                className="w-full px-4 py-3 glass border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 cursor-pointer"
                 disabled={generating}
               >
                 {models.length === 0 ? (
@@ -421,17 +413,37 @@ function CreateContent() {
               </select>
             )}
             {models.find((m) => m.id === model)?.description && (
-              <p className="mt-2 text-sm text-slate-400">
+              <p className="mt-3 text-sm text-gray-400">
                 {models.find((m) => m.id === model)?.description}
               </p>
             )}
+            
+            {/* Custom API Key Input */}
+            <div className="mt-4">
+              <label htmlFor="customApiKey" className="block text-sm font-medium text-gray-300 mb-2">
+                Custom API Key (Optional)
+              </label>
+              <input
+                id="customApiKey"
+                type="password"
+                placeholder="Enter your custom API key..."
+                className="w-full px-4 py-3 glass border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 focus:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={generating}
+                onChange={() => {
+                  // Buffer - input accepted but not processed, backend will get error if used
+                }}
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Custom API key support
+              </p>
+            </div>
           </div>
 
           {/* Generate Button */}
           <button
             type="submit"
             disabled={generating || !prompt.trim()}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200"
+            className="w-full glass-card border border-white/20 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-3.5 px-6 rounded-xl transition-all hover-lift disabled:hover:transform-none"
           >
             {generating ? (
               <span className="flex items-center justify-center gap-2">
@@ -446,12 +458,12 @@ function CreateContent() {
 
         {/* Progress Indicator */}
         {generating && generationProgress && (
-          <div className="mt-6 p-4 bg-blue-900/20 border border-blue-600/30 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
+          <div className="mt-8 p-6 glass-card border border-white/20 rounded-2xl animate-slide-up">
+            <div className="flex items-center gap-4">
+              <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
               <div className="flex-1">
-                <p className="text-blue-300 font-medium">{generationProgress}</p>
-                <p className="text-blue-200/60 text-sm mt-1">
+                <p className="text-white font-medium">{generationProgress}</p>
+                <p className="text-gray-400 text-sm mt-1">
                   AI generation: 30-60 seconds • Content will appear immediately when ready
                 </p>
               </div>
@@ -461,73 +473,73 @@ function CreateContent() {
 
         {/* Result Display */}
         {result && (
-          <div className="mt-8 p-6 bg-slate-900 border border-slate-800 rounded-lg">
-            <h2 className="text-xl font-semibold text-white mb-4">Generated Content</h2>
+          <div className="mt-8 p-8 glass-card border border-white/10 rounded-2xl animate-slide-up">
+            <h2 className="text-2xl font-bold text-white mb-6">Generated Content</h2>
             
-            <div className="mb-4">
+            <div className="mb-6">
               {result.contentType === 'image' || !result.contentType ? (
               <img
                   src={result.contentUrl || result.imageUrl}
                   alt="Generated content"
-                  className="w-full rounded-lg border border-slate-800"
+                  className="w-full rounded-xl border border-white/10"
                 />
               ) : result.contentType === 'video' ? (
                 <video
                   src={result.contentUrl || result.videoUrl}
                   controls
-                  className="w-full rounded-lg border border-slate-800"
+                  className="w-full rounded-xl border border-white/10"
                 />
               ) : result.contentType === 'music' ? (
                 <audio
                   src={result.contentUrl || result.audioUrl}
                   controls
-                className="w-full rounded-lg border border-slate-800"
+                className="w-full rounded-xl border border-white/10"
               />
               ) : result.contentType === 'text' ? (
-                <div className="p-4 bg-slate-800 rounded-lg border border-slate-800">
+                <div className="p-4 glass border border-white/10 rounded-xl">
                   <pre className="text-white whitespace-pre-wrap font-mono text-sm">{result.content || result.text}</pre>
                 </div>
               ) : result.contentType === 'code' ? (
-                <div className="p-4 bg-slate-800 rounded-lg border border-slate-800">
+                <div className="p-4 glass border border-white/10 rounded-xl">
                   <pre className="text-white whitespace-pre-wrap font-mono text-sm">{result.content || result.code}</pre>
                 </div>
               ) : (
-                <div className="p-4 bg-slate-800 rounded-lg border border-slate-800 text-white">
+                <div className="p-4 glass border border-white/10 rounded-xl text-white">
                   Content generated successfully. URL: {result.contentUrl || result.imageUrl}
                 </div>
               )}
             </div>
 
-            <div className="space-y-3 text-sm">
+            <div className="space-y-4 text-sm">
               {/* IPFS Status */}
               {result.ipfsReady ? (
-                <div className="p-3 bg-green-900/20 border border-green-600/30 rounded">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-green-400">✅ Uploaded to IPFS</span>
+                <div className="p-4 glass-card border border-green-400/30 rounded-xl">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-green-400 font-medium">✅ Uploaded to IPFS</span>
                   </div>
                   <div>
-                    <span className="text-slate-400">IPFS CID:</span>
-                    <code className="ml-2 text-green-400 break-all text-xs">{result.ipfsCID}</code>
+                    <span className="text-gray-400">IPFS CID:</span>
+                    <code className="ml-2 text-gray-300 break-all text-xs font-mono">{result.ipfsCID}</code>
                   </div>
                 </div>
               ) : (
-                <div className="p-3 bg-yellow-900/20 border border-yellow-600/30 rounded">
+                <div className="p-4 glass-card border border-yellow-400/30 rounded-xl">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-2">
                         <span className="text-yellow-400 font-medium">⚠️ Not on IPFS yet</span>
                       </div>
-                      <p className="text-yellow-200/70 text-xs">
+                      <p className="text-gray-300 text-sm mb-3">
                         Currently using temporary storage. Upload to IPFS for permanent, decentralized storage.
                       </p>
                     </div>
                     <button
                       onClick={handleUploadToIPFS}
                       disabled={uploadingToIPFS}
-                      className="flex-shrink-0 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-700/50 text-white text-xs rounded transition-colors font-medium"
+                      className="flex-shrink-0 px-4 py-2 glass-card border border-yellow-400/30 hover:border-yellow-400/50 disabled:opacity-50 text-yellow-400 text-sm rounded-xl transition-all font-medium"
                     >
                       {uploadingToIPFS ? (
-                        <span className="flex items-center gap-1">
+                        <span className="flex items-center gap-2">
                           <div className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin"></div>
                           Uploading...
                         </span>
@@ -540,34 +552,34 @@ function CreateContent() {
               )}
 
               {/* Content Hash */}
-              <div className="p-3 bg-blue-900/20 border border-blue-600/30 rounded">
-                <div className="flex items-start justify-between gap-2">
+              <div className="p-4 glass border border-white/10 rounded-xl">
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <span className="text-blue-400 font-medium block mb-1">Content Hash (for verification):</span>
-                    <code className="text-xs text-blue-300 break-all block">{result.contentHash}</code>
+                    <span className="text-gray-300 font-medium block mb-2">Content Hash (for verification):</span>
+                    <code className="text-xs text-gray-300 break-all block font-mono">{result.contentHash}</code>
                   </div>
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(result.contentHash);
                       toast.success('Hash copied to clipboard!');
                     }}
-                    className="flex-shrink-0 px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                    className="flex-shrink-0 px-3 py-1.5 glass border border-white/10 hover:border-white/20 text-white text-xs rounded-xl transition-all font-medium"
                   >
                     Copy
                   </button>
                 </div>
-                <p className="text-xs text-blue-200/70 mt-2">
+                <p className="text-xs text-gray-400 mt-3">
                   ℹ️ Save this hash to verify your artwork later
                 </p>
               </div>
               
-              <div>
-                <span className="text-slate-400">Model:</span>
+              <div className="text-gray-400">
+                <span>Model:</span>
                 <span className="ml-2 text-white">{result.model}</span>
               </div>
             </div>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-8 space-y-4">
               <div className="flex gap-3">
                 <button
                   onClick={async () => {
@@ -590,6 +602,7 @@ function CreateContent() {
                       await registerArtwork({
                         contentHash: result.contentHash,
                         promptHash: result.promptHash,
+                        prompt: prompt, // Include prompt for database storage
                         ipfsCID: result.ipfsCID,
                         modelUsed: result.model,
                         metadataURI: result.metadataURI || `ipfs://${result.ipfsCID}`,
@@ -600,7 +613,7 @@ function CreateContent() {
                     }
                   }}
                   disabled={isRegistering || isConfirming || isConfirmed || !result || !result.ipfsReady}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
+                  className="flex-1 glass-card border border-white/20 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium py-2.5 px-4 rounded-xl transition-all hover-lift disabled:hover:transform-none"
                   title={!result?.ipfsReady ? 'Upload to IPFS first' : ''}
                 >
                   {isRegistering ? (
@@ -627,7 +640,7 @@ function CreateContent() {
                   href={result.contentUrl || result.imageUrl || result.videoUrl || result.audioUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-center"
+                  className="flex-1 glass border border-white/10 hover:border-white/20 text-white font-medium py-2.5 px-4 rounded-xl transition-all hover-lift text-center"
                 >
                   View Content
                 </a>
@@ -635,18 +648,18 @@ function CreateContent() {
 
               {/* Transaction Status */}
               {(txHash || isConfirming || isConfirmed) && (
-                <div className={`p-3 rounded-lg text-sm ${
+                <div className={`p-4 rounded-xl text-sm ${
                   isConfirmed 
-                    ? 'bg-green-900/20 border border-green-600/30' 
-                    : 'bg-blue-900/20 border border-blue-600/30'
+                    ? 'glass-card border border-green-400/30' 
+                    : 'glass-card border border-white/20'
                 }`}>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {txHash && (
                       <div>
-                        <span className={isConfirmed ? 'text-green-400' : 'text-blue-400'}>
+                        <span className={isConfirmed ? 'text-green-400' : 'text-gray-300'}>
                           Transaction Hash:
                         </span>
-                        <code className="ml-2 text-xs break-all">
+                        <code className="ml-2 text-xs break-all font-mono text-gray-300">
                           {txHash}
                         </code>
                         {process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL && (
@@ -654,7 +667,7 @@ function CreateContent() {
                             href={`${process.env.NEXT_PUBLIC_YOUR_CHAIN_EXPLORER_URL}/tx/${txHash}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className={`ml-2 ${isConfirmed ? 'text-green-400' : 'text-blue-400'} hover:underline`}
+                            className={`ml-2 ${isConfirmed ? 'text-green-400 hover:text-green-300' : 'text-gray-300 hover:text-white'} transition-colors`}
                           >
                             View on Explorer →
                           </a>
@@ -662,7 +675,7 @@ function CreateContent() {
                       </div>
                     )}
                     <div>
-                      <span className={isConfirmed ? 'text-green-300' : 'text-blue-300'}>
+                      <span className={isConfirmed ? 'text-green-400' : 'text-gray-300'}>
                         {isConfirming && '⏳ Waiting for blockchain confirmation...'}
                         {isConfirmed && '✅ Transaction confirmed! Your artwork is now on the blockchain.'}
                       </span>
@@ -673,11 +686,11 @@ function CreateContent() {
 
               {/* Error Display */}
               {txError && (
-                <div className="p-3 bg-red-900/20 border border-red-600/30 rounded-lg text-sm">
-                  <div className="text-red-400">
+                <div className="p-4 glass-card border border-red-400/30 rounded-xl text-sm">
+                  <div className="text-red-400 font-medium mb-2">
                     ❌ Blockchain registration failed
                   </div>
-                  <div className="text-red-200/70 text-xs mt-1">
+                  <div className="text-gray-300 text-xs">
                     Your artwork is saved in the database, but blockchain registration failed. 
                     You can retry or verify it later.
                   </div>
@@ -688,7 +701,7 @@ function CreateContent() {
               {isConfirmed && (
                 <Link
                   href={`/verify?hash=${result.contentHash}`}
-                  className="block w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200 text-center"
+                  className="block w-full glass-card border border-green-400/30 hover:border-green-400/50 text-green-400 font-medium py-2.5 px-4 rounded-xl transition-all hover-lift text-center"
                 >
                   ✓ Verify Registration on Blockchain
                 </Link>

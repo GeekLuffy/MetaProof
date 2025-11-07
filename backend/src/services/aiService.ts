@@ -5,6 +5,7 @@ import Bytez from 'bytez.js';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const STABILITY_API_KEY = process.env.STABILITY_API_KEY || '';
 const BYTEZ_API_KEY = process.env.BYTEZ_API_KEY || '';
+const HUGGINGFACE_API_KEY = process.env.HUGGINGFACE_API_KEY || '';
 
 /**
  * AI Service for generating images using multiple providers
@@ -14,6 +15,7 @@ export class AIService {
   private stabilityApiKey: string;
   private bytezSdk: Bytez | null = null;
   private bytezApiKey: string;
+  private huggingfaceApiKey: string;
 
   constructor() {
     if (OPENAI_API_KEY) {
@@ -23,6 +25,7 @@ export class AIService {
     }
     this.stabilityApiKey = STABILITY_API_KEY;
     this.bytezApiKey = BYTEZ_API_KEY;
+    this.huggingfaceApiKey = HUGGINGFACE_API_KEY;
     
     if (BYTEZ_API_KEY) {
       try {
@@ -33,6 +36,12 @@ export class AIService {
       }
     } else {
       console.warn('⚠️ BYTEZ_API_KEY is not set in environment variables');
+    }
+
+    if (HUGGINGFACE_API_KEY) {
+      console.log('✅ Hugging Face API key configured');
+    } else {
+      console.warn('⚠️ HUGGINGFACE_API_KEY is not set in environment variables');
     }
   }
 
@@ -389,6 +398,75 @@ export class AIService {
   }
 
   /**
+   * Generate image using Hugging Face Inference API
+   */
+  async generateHuggingFace(
+    prompt: string,
+    modelId: string = 'stabilityai/stable-diffusion-xl-base-1.0',
+    options?: any
+  ): Promise<{ imageUrl: string; metadata?: any }> {
+    if (!this.huggingfaceApiKey) {
+      throw new Error('Hugging Face API key not configured');
+    }
+
+    try {
+      console.log(`🎨 Generating image with Hugging Face model: ${modelId}`);
+      console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
+
+      // Hugging Face Inference API endpoint
+      const apiUrl = `https://api-inference.huggingface.co/models/${modelId}`;
+
+      const response = await axios.post(
+        apiUrl,
+        {
+          inputs: prompt,
+          parameters: {
+            num_inference_steps: options?.num_inference_steps || 50,
+            guidance_scale: options?.guidance_scale || 7.5,
+            width: options?.width || 1024,
+            height: options?.height || 1024,
+          },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.huggingfaceApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          responseType: 'arraybuffer',
+          timeout: 300000, // 5 minutes timeout
+        }
+      );
+
+      if (!response.data) {
+        throw new Error('No data returned from Hugging Face');
+      }
+
+      // Convert arraybuffer to base64 data URL
+      const base64 = Buffer.from(response.data).toString('base64');
+      const imageUrl = `data:image/png;base64,${base64}`;
+
+      console.log(`✅ Hugging Face generation successful. Image generated.`);
+
+      return {
+        imageUrl,
+        metadata: {
+          modelId,
+          provider: 'huggingface',
+        },
+      };
+    } catch (error: any) {
+      console.error('❌ Hugging Face generation error:', error);
+      if (error.response?.status === 503) {
+        throw new Error('Model is currently loading. Please wait a moment and try again.');
+      }
+      if (error.response?.status === 401) {
+        throw new Error('Invalid Hugging Face API key. Please check your HUGGINGFACE_API_KEY.');
+      }
+      throw new Error(`Hugging Face generation failed: ${error.message}`);
+    }
+  }
+
+  /**
    * Generate image using specified model
    */
   async generateImage(
@@ -403,6 +481,16 @@ export class AIService {
       return {
         imageUrl: bytezResult.imageUrl,
         metadata: bytezResult.metadata,
+      };
+    }
+
+    // Check if it's a Hugging Face model (models are in format 'huggingface:model-id')
+    if (model.startsWith('huggingface:')) {
+      const hfModelId = model.replace('huggingface:', '');
+      const hfResult = await this.generateHuggingFace(prompt, hfModelId, options);
+      return {
+        imageUrl: hfResult.imageUrl,
+        metadata: hfResult.metadata,
       };
     }
 
@@ -480,6 +568,17 @@ export class AIService {
       }
     }
 
+    // Check if it's a Hugging Face model (for images)
+    if (model.startsWith('huggingface:') && (contentType === 'image' || !contentType)) {
+      const hfModelId = model.replace('huggingface:', '');
+      const hfResult = await this.generateHuggingFace(typeof prompt === 'string' ? prompt : prompt[prompt.length - 1].content, hfModelId, options);
+      return {
+        imageUrl: hfResult.imageUrl,
+        contentUrl: hfResult.imageUrl,
+        metadata: hfResult.metadata,
+      };
+    }
+
     // For non-Bytez models, default to image generation
     if (contentType === 'image' || !contentType) {
       const imageResult = await this.generateImage(typeof prompt === 'string' ? prompt : prompt[prompt.length - 1].content, model, options);
@@ -514,6 +613,22 @@ export class AIService {
       }
       
       return hasKey && hasSdk;
+    }
+
+    // Check if it's a Hugging Face model
+    if (model.startsWith('huggingface:')) {
+      const hasKey = !!HUGGINGFACE_API_KEY && HUGGINGFACE_API_KEY.trim().length > 0;
+      
+      // Only log in development to avoid spam
+      if (process.env.NODE_ENV === 'development') {
+        if (!hasKey) {
+          console.log(`🔍 Hugging Face model "${model}": API key not found or empty`);
+        } else {
+          console.log(`✅ Hugging Face model "${model}": Configured and ready`);
+        }
+      }
+      
+      return hasKey;
     }
 
     if (model === 'dall-e-3') {

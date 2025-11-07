@@ -7,12 +7,12 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000'),
-  title: 'Proof-of-Art | Blockchain AI Art Verification',
+  title: 'MetaProof | Blockchain AI Art Verification',
   description: 'The world\'s first blockchain-verified creative provenance system for AI-generated art. Own your creativity. Prove your originality.',
-  keywords: ['blockchain', 'AI art', 'NFT', 'verification', 'Web3', 'proof-of-art'],
-  authors: [{ name: 'Proof-of-Art Team' }],
+  keywords: ['blockchain', 'AI art', 'NFT', 'verification', 'Web3', 'metaproof'],
+  authors: [{ name: 'MetaProof Team' }],
   openGraph: {
-    title: 'Proof-of-Art | Blockchain AI Art Verification',
+    title: 'MetaProof | Blockchain AI Art Verification',
     description: 'Own your creativity. Prove your originality.',
     type: 'website',
   },

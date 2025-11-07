@@ -29,6 +29,7 @@ const getContractAddress = (): `0x${string}` => {
 interface RegisterArtworkParams {
   contentHash: string; // hex string (0x...)
   promptHash: string;  // hex string (0x...)
+  prompt?: string;     // Original prompt text
   ipfsCID: string;
   modelUsed: string;
   metadataURI: string;
@@ -157,11 +158,40 @@ export function useRegisterArtwork() {
     }
   }, [hash, isConfirmed, error]);
 
-  // Track when transaction is confirmed
+  // Track when transaction is confirmed and save to database with prompt
   useEffect(() => {
     if (isConfirmed && hash && registrationParamsRef.current) {
       console.log('✅ Transaction confirmed:', hash);
       console.log('✅ Artwork registered on blockchain with hash:', registrationParamsRef.current.contentHash);
+      
+      // Save to database with prompt after blockchain confirmation
+      const saveToDatabase = async () => {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+          const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+          
+          await fetch(`${apiUrl}/api/artworks`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify({
+              contentHash: registrationParamsRef.current.contentHash,
+              promptHash: registrationParamsRef.current.promptHash,
+              prompt: registrationParamsRef.current.prompt, // Include prompt
+              ipfsCID: registrationParamsRef.current.ipfsCID,
+              modelUsed: registrationParamsRef.current.modelUsed,
+              metadataURI: registrationParamsRef.current.metadataURI,
+            }),
+          });
+        } catch (error) {
+          // Silent error - database save is non-critical
+        }
+      };
+      
+      saveToDatabase();
+      
       toast.success('✅ Artwork successfully registered on blockchain! 🎉', { 
         id: 'register-tx',
         duration: 5000 
